@@ -1,14 +1,14 @@
 import sodium from 'sodium-native'
 
 /**
- *
- * @param {string} password
+ * @param {string} password - Base64 encoded password
  * @returns {{
  *   salt: string
  *   hashedPassword: string
  * }}
  */
 export const hashPassword = (password) => {
+  const passwordBuffer = Buffer.from(password, 'base64')
   const salt = sodium.sodium_malloc(sodium.crypto_pwhash_SALTBYTES)
 
   sodium.randombytes_buf(salt)
@@ -21,7 +21,7 @@ export const hashPassword = (password) => {
 
   sodium.crypto_pwhash(
     hashedPassword,
-    Buffer.from(password),
+    passwordBuffer,
     salt,
     opslimit,
     memlimit,
