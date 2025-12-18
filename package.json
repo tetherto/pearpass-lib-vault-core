@@ -6,8 +6,10 @@
   "main": "src/index.js",
   "license": "Apache-2.0",
   "scripts": {
-    "lint": "eslint --fix .",
-    "test": "jest"
+    "lint": "eslint .",
+    "lint:fix": "eslint --fix .",
+    "test": "jest",
+    "prepare": "husky || true"
   },
   "dependencies": {
     "autopass": "^3.1.5",
@@ -32,6 +34,7 @@
     "@babel/core": "^7.28.4",
     "@babel/preset-env": "^7.28.3",
     "babel-jest": "30.2.0",
+    "husky": "^9.1.7",
     "jest": "30.2.0"
   },
   "peerDependencies": {

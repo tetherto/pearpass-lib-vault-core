@@ -4,7 +4,7 @@ export async function getConfig(store) {
     const conf = new Swarmconf(store)
     await conf.ready()
     return conf
-  } catch (e) {
+  } catch {
     // Package not installed, so we return a dummy config
     // You can replace this with your own Hyperconf instance
     // see https://github.com/holepunchto/hyperconf

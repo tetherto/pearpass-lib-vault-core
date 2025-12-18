@@ -1,6 +1,7 @@
-import { getConfig } from './utils/swarm'
 import Autopass from 'autopass'
 import Corestore from 'corestore'
+
+import { getConfig } from './utils/swarm'
 
 export class PearPassPairer {
   constructor() {

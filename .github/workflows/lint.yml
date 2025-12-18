@@ -1,0 +1,53 @@
+name: Lint check
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.NOXTTON_BOT_PAT }}
+
+      - name: Checkout tether-dev-docs
+        uses: actions/checkout@v4
+        with:
+          repository: noxtton/tether-dev-docs
+          token: ${{ secrets.NOXTTON_BOT_PAT }}
+          path: tether-dev-docs
+
+      - name: Configure Git credentials
+        run: |
+          git config --global --add url."https://${{ secrets.NOXTTON_BOT_PAT }}:x-oauth-basic@github.com/".insteadOf "git+ssh://git@github.com/"
+          git config --global --add url."https://${{ secrets.NOXTTON_BOT_PAT }}:x-oauth-basic@github.com/".insteadOf "git@github.com:"
+          git config --global --add url."https://${{ secrets.NOXTTON_BOT_PAT }}:x-oauth-basic@github.com/".insteadOf "https://github.com/"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@tetherto"
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NOXTTON_BOT_PAT }}
+
+      - name: Install ESLint
+        run: npm install eslint@9.18.0 --legacy-peer-deps
+
+      - name: Setup tether-dev-docs
+        run: |
+          cp -r tether-dev-docs node_modules/tether-dev-docs
+          cd node_modules/tether-dev-docs && npm install --legacy-peer-deps
+
+      - name: Run ESLint
+        run: npm run lint

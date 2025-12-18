@@ -5,7 +5,8 @@ import { validateAndSanitizePath } from './validateAndSanitizePath'
 
 // Mock bare-path since it's an external dependency
 jest.mock('bare-path', () => ({
-  normalize: jest.fn((path) => path.replace(/\/+$/, '')) // Simple mock implementation
+  normalize: jest.fn((path) => path.replace(/\/+$/, '')), // Simple mock implementation
+  isAbsolute: jest.fn((path) => path.startsWith('/'))
 }))
 
 describe('validateAndSanitizePath', () => {
