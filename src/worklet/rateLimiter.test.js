@@ -163,4 +163,66 @@ describe('RateLimiter', () => {
 
     expect(remaining).toBe(0)
   })
+
+  describe('Security checks, loading behavior', () => {
+    test('getData should return locked state on storage read error (not reset to 0)', async () => {
+      jest.spyOn(Date, 'now').mockReturnValue(1000000)
+      mockStorage.get.mockRejectedValue(new Error('Storage corrupted'))
+
+      const data = await rateLimiter.getData()
+
+      expect(data.failedAttempts).toBe(5)
+      expect(data.lockoutUntil).toBe(1000000 + 5 * 60 * 1000)
+    })
+
+    test('getStatus should show locked when storage fails', async () => {
+      jest.spyOn(Date, 'now').mockReturnValue(1000000)
+      mockStorage.get.mockRejectedValue(new Error('Storage quota exceeded'))
+
+      const status = await rateLimiter.getStatus()
+
+      expect(status.isLocked).toBe(true)
+      expect(status.remainingAttempts).toBe(0)
+      expect(status.lockoutRemainingMs).toBeGreaterThan(0)
+    })
+
+    test('recordFailure should throw when storage operations fail', async () => {
+      mockStorage.get.mockRejectedValue(new Error('Storage unavailable'))
+      mockStorage.add.mockRejectedValue(new Error('Write failed'))
+
+      await expect(rateLimiter.recordFailure()).rejects.toThrow(
+        'Failed to record attempt - denying access'
+      )
+    })
+
+    test('recordFailure should throw when storage.add fails', async () => {
+      mockStorage.get.mockResolvedValue({
+        failedAttempts: 2,
+        lockoutUntil: null
+      })
+      mockStorage.add.mockRejectedValue(new Error('Write failed'))
+
+      await expect(rateLimiter.recordFailure()).rejects.toThrow(
+        'Failed to record attempt - denying access'
+      )
+    })
+
+    test('getData should return DEFAULT_DATA when no data exists on first load', async () => {
+      mockStorage.get.mockResolvedValue(null)
+
+      const data = await rateLimiter.getData()
+
+      expect(data.failedAttempts).toBe(0)
+      expect(data.lockoutUntil).toBeNull()
+    })
+
+    test('getData should return DEFAULT_DATA when undefined is returned on first load', async () => {
+      mockStorage.get.mockResolvedValue(undefined)
+
+      const data = await rateLimiter.getData()
+
+      expect(data.failedAttempts).toBe(0)
+      expect(data.lockoutUntil).toBeNull()
+    })
+  })
 })
