@@ -8,10 +8,12 @@ export class Logger {
       return
     }
 
+    // eslint-disable-next-line no-console
     console.log(messages)
   }
 
   error(...messages) {
+    // eslint-disable-next-line no-console
     console.error(messages)
   }
 }

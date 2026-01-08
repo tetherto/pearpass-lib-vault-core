@@ -1,3 +1,4 @@
+/** @typedef {import('bare')} */ /* global BareKit */
 import RPC from 'bare-rpc'
 import FramedStream from 'framed-stream'
 

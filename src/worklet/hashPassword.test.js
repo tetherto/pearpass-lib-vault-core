@@ -27,8 +27,8 @@ describe('hashPassword', () => {
   })
 
   it('should generate a salt and a hashed password', () => {
-    const password = 'my-secret-password'
-    const result = hashPassword(password)
+    const passwordBase64 = Buffer.from('my-secret-password').toString('base64')
+    const result = hashPassword(passwordBase64)
 
     expect(sodium.randombytes_buf).toHaveBeenCalledTimes(1)
     expect(sodium.sodium_malloc).toHaveBeenCalledWith(
@@ -39,7 +39,7 @@ describe('hashPassword', () => {
     const hashedPasswordBuffer = sodium.sodium_malloc.mock.results[1].value
     expect(sodium.crypto_pwhash).toHaveBeenCalledWith(
       hashedPasswordBuffer,
-      Buffer.from(password),
+      Buffer.from(passwordBase64, 'base64'),
       expect.any(Buffer),
       sodium.crypto_pwhash_OPSLIMIT_SENSITIVE,
       sodium.crypto_pwhash_MEMLIMIT_INTERACTIVE,
@@ -53,7 +53,7 @@ describe('hashPassword', () => {
   })
 
   it('should return different results for different mock implementations', () => {
-    const password = 'another-password'
+    const password = Buffer.from('another-password').toString('base64')
 
     const differentSalt = Buffer.alloc(sodium.crypto_pwhash_SALTBYTES, 'c')
     const differentHashedPassword = Buffer.alloc(

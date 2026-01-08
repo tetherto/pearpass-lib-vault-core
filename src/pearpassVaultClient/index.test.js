@@ -122,16 +122,16 @@ describe('PearpassVaultClient', () => {
 
   it('should throw error for unknown command in _handleRequest', async () => {
     await expect(
-      client._handleRequest({ command: 'UNKNOWN_COMMAND' })
+      client.handleRequest({ command: 'UNKNOWN_COMMAND' })
     ).rejects.toThrow('Unknown command:')
   })
 
   it('should throw ELOCKED error in _handleError', () => {
-    expect(() => client._handleError({ error: 'ELOCKED' })).toThrow('ELOCKED')
+    expect(() => client.handleError({ error: 'ELOCKED' })).toThrow('ELOCKED')
   })
 
   it('should throw generic error in _handleError', () => {
-    expect(() => client._handleError({ error: 'Some error' })).toThrow(
+    expect(() => client.handleError({ error: 'Some error' })).toThrow(
       'Some error'
     )
   })
@@ -187,7 +187,7 @@ describe('PearpassVaultClient', () => {
   })
 
   it('should call activeVaultAddFile and log', async () => {
-    const logSpy = jest.spyOn(client._logger, 'log')
+    const logSpy = jest.spyOn(client.logger, 'log')
     await client.activeVaultAddFile('fileKey', Buffer.from('data'))
     expect(logSpy).toHaveBeenCalledWith('Adding file to active vault:', {
       key: 'fileKey'
@@ -204,7 +204,7 @@ describe('PearpassVaultClient', () => {
     client.rpc.request = () => {
       throw new Error('fail')
     }
-    const errorSpy = jest.spyOn(client._logger, 'error')
+    const errorSpy = jest.spyOn(client.logger, 'error')
     await expect(
       client.activeVaultAddFile('fileKey', Buffer.from('data'))
     ).rejects.toThrow('fail')
@@ -218,7 +218,7 @@ describe('PearpassVaultClient', () => {
     client.rpc.request = () => {
       throw new Error('fail')
     }
-    const errorSpy = jest.spyOn(client._logger, 'error')
+    const errorSpy = jest.spyOn(client.logger, 'error')
     await client.activeVaultGetFile('fileKey')
     expect(errorSpy).toHaveBeenCalledWith(
       'Error getting file from active vault:',

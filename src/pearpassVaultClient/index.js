@@ -19,9 +19,11 @@ export class PearpassVaultClient extends EventEmitter {
           return
         }
 
+        // eslint-disable-next-line no-console
         console.log(...args)
       },
       error: (...args) => {
+        // eslint-disable-next-line no-console
         console.error(...args)
       }
     }
@@ -69,7 +71,7 @@ export class PearpassVaultClient extends EventEmitter {
       throw new Error('Unknown command:', command)
     }
 
-    this._logger.log('Sending request:', commandName, data ?? '')
+    this._logger.log('Sending request:', commandName)
 
     const req = this.rpc.request(command)
 
@@ -81,7 +83,7 @@ export class PearpassVaultClient extends EventEmitter {
 
     this._handleError(parsedRes)
 
-    this._logger.log('Received response:', API_BY_VALUE[req.command], parsedRes)
+    this._logger.log('Received response:', API_BY_VALUE[req.command])
 
     return parsedRes?.data
   }
@@ -450,13 +452,15 @@ export class PearpassVaultClient extends EventEmitter {
 
   /**
    * Hashes a password for the active vault.
-   * @param {string} password - The password to hash.
+   * @param {Buffer | Uint8Array} password - The password to hash.
    * @returns {Promise<Object>}
    */
   async hashPassword(password) {
+    const buffer = Buffer.from(password)
+    const passwordString = buffer.toString('base64')
     return this._handleRequest({
       command: API.ENCRYPTION_HASH_PASSWORD,
-      data: { password }
+      data: { password: passwordString }
     })
   }
 
@@ -489,13 +493,15 @@ export class PearpassVaultClient extends EventEmitter {
    * Gets the decryption key for the active vault.
    * @param {Object} params - The parameters for getting the decryption key.
    * @param {string} params.salt - The salt to use for key derivation.
-   * @param {string} params.password - The password to use for key derivation.
+   * @param {Buffer | Uint8Array} params.password - The password to use for key derivation.
    * @returns {Promise<Object>}
    */
   async getDecryptionKey({ salt, password }) {
+    const buffer = Buffer.from(password)
+    const passwordString = buffer.toString('base64')
     return this._handleRequest({
       command: API.ENCRYPTION_GET_DECRYPTION_KEY,
-      data: { salt, password }
+      data: { salt, password: passwordString }
     })
   }
 

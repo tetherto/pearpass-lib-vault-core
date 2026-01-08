@@ -19,12 +19,12 @@ export const encryptVaultKeyWithHashedPassword = (hashedPassword) => {
   sodium.randombytes_buf(key)
   sodium.randombytes_buf(nonce)
 
-  sodium.crypto_secretbox_easy(
-    ciphertext,
-    key,
-    nonce,
-    Buffer.from(hashedPassword, 'hex')
+  const hashedPasswordBuf = sodium.sodium_malloc(
+    sodium.crypto_secretbox_KEYBYTES
   )
+  hashedPasswordBuf.write(hashedPassword, 'hex')
+
+  sodium.crypto_secretbox_easy(ciphertext, key, nonce, hashedPasswordBuf)
 
   return {
     ciphertext: ciphertext.toString('base64'),

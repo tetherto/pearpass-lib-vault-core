@@ -1,3 +1,4 @@
+/** @typedef {import('bare')} */ /* global BareKit */
 import { handleRpcCommand } from './appCore'
 import { destroySharedDHT } from './utils/dht'
 import { isPearWorker } from './utils/isPearWorker'

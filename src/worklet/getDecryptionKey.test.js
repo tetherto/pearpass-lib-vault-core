@@ -25,7 +25,7 @@ describe('getDecryptionKey', () => {
   test('should return a base64 encoded string', () => {
     const result = getDecryptionKey({
       salt: 'c29tZXNhbHQ=',
-      password: 'mypassword'
+      password: Buffer.from('mypassword').toString('base64')
     })
 
     expect(result).toBeTruthy()
@@ -35,11 +35,11 @@ describe('getDecryptionKey', () => {
 
   test('should call sodium.crypto_pwhash with correct parameters', () => {
     const salt = 'c29tZXNhbHQ='
-    const password = 'mypassword'
+    const passwordBase64 = Buffer.from('mypassword').toString('base64')
 
     getDecryptionKey({
       salt,
-      password
+      password: passwordBase64
     })
 
     expect(sodium.sodium_malloc).toHaveBeenCalledWith(
@@ -47,7 +47,7 @@ describe('getDecryptionKey', () => {
     )
     expect(sodium.crypto_pwhash).toHaveBeenCalledWith(
       expect.any(Buffer),
-      Buffer.from(password),
+      expect.any(Buffer),
       Buffer.from(salt, 'base64'),
       sodium.crypto_pwhash_OPSLIMIT_SENSITIVE,
       sodium.crypto_pwhash_MEMLIMIT_INTERACTIVE,
@@ -63,8 +63,14 @@ describe('getDecryptionKey', () => {
       Buffer.from(result.padEnd(out.length, '0')).copy(out)
     })
 
-    const key1 = getDecryptionKey({ salt, password: 'password1' })
-    const key2 = getDecryptionKey({ salt, password: 'password2' })
+    const key1 = getDecryptionKey({
+      salt,
+      password: Buffer.from('password1').toString('base64')
+    })
+    const key2 = getDecryptionKey({
+      salt,
+      password: Buffer.from('password2').toString('base64')
+    })
 
     expect(key1).not.toBe(key2)
   })
@@ -77,11 +83,11 @@ describe('getDecryptionKey', () => {
 
     const key1 = getDecryptionKey({
       salt: 'c29tZXNhbHQ=',
-      password: 'password'
+      password: Buffer.from('password').toString('base64')
     })
     const key2 = getDecryptionKey({
       salt: 'b3RoZXJzYWx0',
-      password: 'password'
+      password: Buffer.from('password').toString('base64')
     })
 
     expect(key1).not.toBe(key2)

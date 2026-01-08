@@ -254,7 +254,7 @@ describe('appDeps module functions (excluding encryption)', () => {
   describe('Vaults initialization and closing', () => {
     beforeEach(() => {
       jest.spyOn(appDeps, 'initInstance').mockResolvedValue(
-        appDeps.__dummyInstance || {
+        appDeps.dummyInstance || {
           ready: jest.fn().mockResolvedValue(),
           close: jest.fn().mockResolvedValue(),
           add: jest.fn().mockResolvedValue()
@@ -283,7 +283,7 @@ describe('appDeps module functions (excluding encryption)', () => {
   describe('Active vault functions', () => {
     beforeEach(() => {
       jest.spyOn(appDeps, 'initInstance').mockResolvedValue(
-        appDeps.__dummyInstance || {
+        appDeps.dummyInstance || {
           ready: jest.fn().mockResolvedValue(),
           close: jest.fn().mockResolvedValue(),
           add: jest.fn().mockResolvedValue(),
@@ -538,7 +538,7 @@ describe('appDeps module functions (excluding encryption)', () => {
   describe('closeAllInstances', () => {
     beforeEach(() => {
       jest.spyOn(appDeps, 'initInstance').mockResolvedValue(
-        appDeps.__dummyInstance || {
+        appDeps.dummyInstance || {
           ready: jest.fn().mockResolvedValue(),
           close: jest.fn().mockResolvedValue()
         }
