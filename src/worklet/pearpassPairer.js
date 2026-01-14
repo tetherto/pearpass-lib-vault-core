@@ -13,56 +13,73 @@ export class PearPassPairer {
      * @type {any | null}
      */
     this.pair = null
+    /**
+     * Used to serialize cleanup so we don't leave partially-closed resources around.
+     * @type {Promise<void>}
+     */
+    this._cleanupInFlight = Promise.resolve()
   }
 
   async pairInstance(path, invite) {
+    // We start from a clean state (important after timeouts / expired invites).
+    await this.cancelPairing()
+
+    const store = new Corestore(path)
+    this.store = store
+
+    if (!store) {
+      throw new Error('Error creating store')
+    }
+
+    const conf = await getConfig(store)
+
+    const pair = Autopass.pair(store, invite, {
+      relayThrough: conf.current.blindRelays
+    })
+    this.pair = pair
+
     try {
-      this.store = new Corestore(path)
-
-      if (!this.store) {
-        throw new Error('Error creating store')
-      }
-
-      const conf = await getConfig(this.store)
-
-      this.pair = Autopass.pair(this.store, invite, {
-        relayThrough: conf.current.blindRelays
-      })
-
-      const instance = await this.pair.finished()
-
+      const instance = await pair.finished()
       await instance.ready()
 
+      const encryptionKey = instance.encryptionKey.toString('base64')
+
       await instance.close()
-
-      this.store = null
-      this.pair = null
-
-      return instance.encryptionKey.toString('base64')
+      return encryptionKey
     } catch (error) {
-      await this.cancelPairing()
       throw new Error(`Pairing failed: ${error.message}`)
+    } finally {
+      await this.cancelPairing()
     }
   }
 
   async cancelPairing() {
-    const hadPair = !!this.pair
-    if (this.pair) {
-      try {
-        await this.pair.close()
-      } catch {
-        // Ignore close errors
-      }
+    // Serialize cleanup to avoid races between pairInstance() finally and an explicit cancel RPC.
+    this._cleanupInFlight = this._cleanupInFlight.then(async () => {
+      const pair = this.pair
+      const store = this.store
+
+      // Clear references first so concurrent callers won't try to reuse half-closed resources.
       this.pair = null
-    }
-    // only close store if pair didn't exist (pair.close() already closes it)
-    if (this.store && !hadPair) {
-      try {
-        await this.store.close()
-      } catch {
-        // Ignore close errors
+      this.store = null
+
+      if (pair) {
+        try {
+          await pair.close()
+        } catch {
+          // Ignore close errors
+        }
       }
-    }
-    this.store = null
+
+      if (store) {
+        try {
+          await store.close()
+        } catch {
+          // Ignore close errors
+        }
+      }
+    })
+
+    await this._cleanupInFlight
   }
 }

@@ -43,7 +43,8 @@ describe('PearPassPairer', () => {
     }
 
     mockPair = {
-      finished: jest.fn().mockResolvedValue(mockInstance)
+      finished: jest.fn().mockResolvedValue(mockInstance),
+      close: jest.fn().mockResolvedValue(undefined)
     }
 
     Autopass.pair.mockReturnValue(mockPair)
@@ -80,7 +81,10 @@ describe('PearPassPairer', () => {
       expect(mockPair.finished).toHaveBeenCalled()
       expect(mockInstance.ready).toHaveBeenCalled()
       expect(mockInstance.close).toHaveBeenCalled()
+      expect(mockPair.close).toHaveBeenCalled()
+      expect(mockStore.close).toHaveBeenCalled()
       expect(pairer.store).toBeNull()
+      expect(pairer.pair).toBeNull()
       expect(result).toBe(expectedKey)
     })
 
@@ -101,6 +105,8 @@ describe('PearPassPairer', () => {
       await expect(pairer.pairInstance(path, invite)).rejects.toThrow(
         'Pairing failed'
       )
+      expect(mockPair.close).toHaveBeenCalled()
+      expect(mockStore.close).toHaveBeenCalled()
     })
 
     it('should propagate errors from instance.ready()', async () => {
@@ -110,6 +116,8 @@ describe('PearPassPairer', () => {
       await expect(pairer.pairInstance(path, invite)).rejects.toThrow(
         'Instance not ready'
       )
+      expect(mockPair.close).toHaveBeenCalled()
+      expect(mockStore.close).toHaveBeenCalled()
     })
 
     it('should propagate errors from instance.close()', async () => {
@@ -119,6 +127,24 @@ describe('PearPassPairer', () => {
       await expect(pairer.pairInstance(path, invite)).rejects.toThrow(
         'Failed to close instance'
       )
+      expect(mockPair.close).toHaveBeenCalled()
+      expect(mockStore.close).toHaveBeenCalled()
+    })
+  })
+
+  describe('cancelPairing', () => {
+    it('should still close the store even if pair.close throws', async () => {
+      mockPair.close.mockRejectedValue(new Error('Pairing closed'))
+
+      pairer.store = mockStore
+      pairer.pair = mockPair
+
+      await expect(pairer.cancelPairing()).resolves.toBeUndefined()
+
+      expect(mockPair.close).toHaveBeenCalled()
+      expect(mockStore.close).toHaveBeenCalled()
+      expect(pairer.store).toBeNull()
+      expect(pairer.pair).toBeNull()
     })
   })
 })
