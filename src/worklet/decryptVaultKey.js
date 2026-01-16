@@ -13,22 +13,27 @@ export const decryptVaultKey = (data) => {
   const nonce = Buffer.from(data.nonce, 'base64')
 
   const hashedPassword = sodium.sodium_malloc(sodium.crypto_secretbox_KEYBYTES)
-  hashedPassword.write(data.hashedPassword, 'hex')
 
   const plainText = sodium.sodium_malloc(
     ciphertext.length - sodium.crypto_secretbox_MACBYTES
   )
+  try {
+    hashedPassword.write(data.hashedPassword, 'hex')
 
-  if (
-    !sodium.crypto_secretbox_open_easy(
+    const opened = sodium.crypto_secretbox_open_easy(
       plainText,
       ciphertext,
       nonce,
       hashedPassword
     )
-  ) {
-    return undefined
-  }
 
-  return plainText.toString('base64')
+    if (!opened) {
+      return undefined
+    }
+
+    return plainText.toString('base64')
+  } finally {
+    sodium.sodium_memzero(hashedPassword)
+    sodium.sodium_memzero(plainText)
+  }
 }

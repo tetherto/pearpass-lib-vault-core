@@ -12,15 +12,26 @@ export const getDecryptionKey = (data) => {
 
   const passwordLen = Buffer.byteLength(data.password, 'base64')
   const password = sodium.sodium_malloc(passwordLen)
-  password.write(data.password, 'base64')
 
   const hashedPassword = sodium.sodium_malloc(sodium.crypto_secretbox_KEYBYTES)
 
   const opslimit = sodium.crypto_pwhash_OPSLIMIT_SENSITIVE
   const memlimit = sodium.crypto_pwhash_MEMLIMIT_INTERACTIVE
   const algo = sodium.crypto_pwhash_ALG_DEFAULT
+  try {
+    password.write(data.password, 'base64')
+    sodium.crypto_pwhash(
+      hashedPassword,
+      password,
+      salt,
+      opslimit,
+      memlimit,
+      algo
+    )
 
-  sodium.crypto_pwhash(hashedPassword, password, salt, opslimit, memlimit, algo)
-
-  return Buffer.from(hashedPassword).toString('hex')
+    return Buffer.from(hashedPassword).toString('hex')
+  } finally {
+    sodium.sodium_memzero(password)
+    sodium.sodium_memzero(hashedPassword)
+  }
 }
