@@ -44,9 +44,9 @@ export class PearPassPairer {
 
     const pair = Autopass.pair(store, invite, {
       relayThrough: conf.current.blindRelays,
-      blindEncryption: new BlindEncryptionSodium([
-        { key: b4a.alloc(32, hashedPassword, 'utf-8'), type: 0 }
-      ])
+      blindEncryption: new BlindEncryptionSodium(
+        b4a.alloc(32, hashedPassword, 'utf-8')
+      )
     })
     this.pair = pair
 

@@ -9,7 +9,13 @@ import {
   vaultsGet,
   getIsVaultsInitialized,
   masterVaultInit,
-  masterVaultInitWithNewBlindEncryption
+  masterVaultInitWithNewBlindEncryption,
+  vaultsList,
+  closeActiveVaultInstance,
+  initActiveVaultInstance,
+  getIsActiveVaultInitialized,
+  activeVaultGet,
+  initInstanceWithNewBlindEncryption
 } from './appDeps'
 import { decryptVaultKey } from './decryptVaultKey'
 import { encryptVaultKeyWithHashedPassword } from './encryptVaultKeyWithHashedPassword'
@@ -218,6 +224,10 @@ class MasterPasswordManager {
       throw new Error('Failed to verify new password encryption')
     }
 
+    // Get active vault info before closing anything
+    const activeVault = await activeVaultGet('vault')
+    const activeVaultId = activeVault?.id
+
     await closeVaultsInstance()
 
     await masterVaultInitWithNewBlindEncryption({
@@ -238,6 +248,15 @@ class MasterPasswordManager {
       ciphertext,
       nonce,
       salt: newSalt
+    })
+
+    // Update blind encryption for all vaults
+    await this.updateAllVaultsBlindEncryption({
+      currentHashedPassword,
+      newHashedPassword,
+      activeVaultId,
+      masterEncryptionKey: currentVaultKey,
+      coreStoreOptions
     })
 
     return {
@@ -275,6 +294,52 @@ class MasterPasswordManager {
       hashedPassword,
       coreStoreOptions
     })
+
+    return { success: true }
+  }
+
+  async updateAllVaultsBlindEncryption({
+    currentHashedPassword,
+    newHashedPassword,
+    activeVaultId,
+    masterEncryptionKey,
+    coreStoreOptions = {}
+  }) {
+    if (getIsActiveVaultInitialized()) {
+      await closeActiveVaultInstance()
+    }
+
+    const allVaults = await vaultsList('vault/')
+
+    // Update blind encryption for each vault
+    // Note: Blind encryption uses master password's hashedPassword for all vaults
+    // The vault's encryption key is only for encrypting vault data, not blind encryption
+    for (const vault of allVaults) {
+      if (!vault?.id) {
+        continue
+      }
+
+      // Reinitialize vault storage with new blind encryption
+      // Blind encryption is always based on master password, so we can update all vaults
+      const vaultInstance = await initInstanceWithNewBlindEncryption({
+        path: `vault/${vault.id}`,
+        encryptionKey: masterEncryptionKey,
+        newHashedPassword,
+        currentHashedPassword,
+        coreStoreOptions
+      })
+
+      await vaultInstance.close()
+    }
+
+    // Reopen the previously active vault if it was open
+    if (activeVaultId && masterEncryptionKey) {
+      await initActiveVaultInstance({
+        id: activeVaultId,
+        encryptionKey: masterEncryptionKey,
+        coreStoreOptions
+      })
+    }
 
     return { success: true }
   }

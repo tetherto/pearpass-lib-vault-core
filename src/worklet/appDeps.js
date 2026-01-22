@@ -215,9 +215,7 @@ export const initInstance = async ({
         ? Buffer.from(encryptionKey, 'base64')
         : undefined,
       blindEncryption: hashedPassword
-        ? new BlindEncryptionSodium([
-            { key: b4a.alloc(32, hashedPassword, 'utf-8'), type: 0 }
-          ])
+        ? new BlindEncryptionSodium(b4a.alloc(32, hashedPassword, 'utf-8'))
         : undefined,
       relayThrough: conf.current.blindRelays
     })
@@ -265,10 +263,10 @@ export const initInstanceWithNewBlindEncryption = async ({
       encryptionKey: encryptionKey
         ? Buffer.from(encryptionKey, 'base64')
         : undefined,
-      blindEncryption: new BlindEncryptionSodium([
-        { key: b4a.alloc(32, currentHashedPassword, 'utf-8'), type: 0 },
-        { key: b4a.alloc(32, newHashedPassword, 'utf-8'), type: 1 }
-      ]),
+      blindEncryption: new BlindEncryptionSodium(
+        b4a.alloc(32, newHashedPassword, 'utf-8'),
+        b4a.alloc(32, currentHashedPassword, 'utf-8')
+      ),
       relayThrough: conf.current.blindRelays
     })
 
