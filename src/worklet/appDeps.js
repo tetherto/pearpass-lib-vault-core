@@ -305,6 +305,13 @@ export const getRateLimitStatus = async () => {
 }
 
 /**
+ * * @returns {Promise<void>}
+ */
+export const resetRateLimit = async () => {
+  await rateLimiter.reset()
+}
+
+/**
  * @param {string | undefined} encryptionKey
  * @returns {Promise<void>}
  */

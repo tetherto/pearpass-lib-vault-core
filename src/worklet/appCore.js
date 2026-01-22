@@ -40,7 +40,8 @@ import {
   vaultsInit,
   vaultsList,
   rateLimitRecordFailure,
-  getRateLimitStatus
+  getRateLimitStatus,
+  resetRateLimit
 } from './appDeps'
 import { decryptVaultKey } from './decryptVaultKey'
 import { encryptVaultKeyWithHashedPassword } from './encryptVaultKeyWithHashedPassword'
@@ -430,6 +431,21 @@ export const handleRpcCommand = async (req, isExtension = false) => {
         req.reply(
           JSON.stringify({
             error: `Error recording failed master pass: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case API.RESET_FAILED_ATTEMPTS:
+      try {
+        await resetRateLimit()
+
+        req.reply(JSON.stringify({ success: true }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error resetting failed attempts: ${error}`
           })
         )
       }

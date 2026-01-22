@@ -238,6 +238,16 @@ export class PearpassVaultClient extends EventEmitter {
   }
 
   /**
+   * Resets the failed master password attempts.
+   * @returns {Promise<Object>}
+   */
+  async resetFailedAttempts() {
+    return this._handleRequest({
+      command: API.RESET_FAILED_ATTEMPTS
+    })
+  }
+
+  /**
    * Closes the active vault.
    * @returns {Promise<Object>}
    */

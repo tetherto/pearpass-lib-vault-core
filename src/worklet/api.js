@@ -44,7 +44,8 @@ export const API = {
   MASTER_PASSWORD_STATUS: 40,
   RECORD_FAILED_MASTER_PASSWORD: 41,
   BACKGROUND_BEGIN: 42,
-  BACKGROUND_END: 43
+  BACKGROUND_END: 43,
+  RESET_FAILED_ATTEMPTS: 42
 }
 
 export const API_BY_VALUE = Object.entries(API).reduce((acc, [key, value]) => {
