@@ -1,6 +1,7 @@
 /** @typedef {import('bare')} */ /* global Bare */
 import Autopass from 'autopass'
 import b4a from 'b4a'
+import fs from 'bare-fs'
 import barePath from 'bare-path'
 import BlindEncryptionSodium from 'blind-encryption-sodium'
 import Corestore from 'corestore'
@@ -218,6 +219,18 @@ export const buildPath = (path) => {
     !normalizedResolved.startsWith(normalizedRoot + barePath.sep)
   ) {
     throw new Error('Resolved path escapes storage root')
+  }
+
+  // Reject symlinks if path exists. Allows new paths (ENOENT).
+  try {
+    const realPath = fs.realpathSync(normalizedResolved)
+    if (realPath !== normalizedResolved) {
+      throw new Error('Path must not be a symbolic link')
+    }
+  } catch (err) {
+    if (err.code !== 'ENOENT') {
+      throw err
+    }
   }
 
   return normalizedResolved

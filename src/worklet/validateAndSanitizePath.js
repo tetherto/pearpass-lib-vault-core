@@ -1,4 +1,5 @@
 // validateAndSanitizePath.js
+import fs from 'bare-fs'
 import barePath from 'bare-path'
 
 const WHITELISTED_DOT_DIRS = ['.config']
@@ -73,6 +74,20 @@ export const validateAndSanitizePath = (rawPath) => {
 
   // Normalize path to remove redundant slashes and trailing slashes
   cleanPath = barePath.normalize(cleanPath)
+
+  // Reject symlinks if path exists. No practical risk currently (all data is
+  // encrypted), but included for future-proofing.
+  try {
+    const realPath = fs.realpathSync(cleanPath)
+    if (realPath !== cleanPath) {
+      throw new Error('Storage path must not be a symbolic link')
+    }
+  } catch (err) {
+    // ENOENT = path doesn't exist yet, which is valid for new storage locations
+    if (err.code !== 'ENOENT') {
+      throw err
+    }
+  }
 
   return cleanPath
 }
