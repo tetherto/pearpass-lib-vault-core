@@ -1077,6 +1077,16 @@ export const writeAndEncryptJobFile = async (jobs) => {
  * @param {object} record
  * @returns {object}
  */
+const activeVaultGetRaw = async (key) => {
+  if (!isActiveVaultInitialized) {
+    throw new Error('Vault not initialised')
+  }
+
+  const res = await activeVaultInstance.get(key)
+  if (!res || !res.value) return null
+  return JSON.parse(res.value)
+}
+
 export const enrichRecordForClient = (record) => {
   if (!record?.data?.otp) {
     return record
@@ -1107,7 +1117,7 @@ export const enrichRecordForClient = (record) => {
     }
 
     delete enriched.data.otp
-    enriched.data.otpPublic = otpPublic
+    enriched.otpPublic = otpPublic
   } catch {
     delete enriched.data.otp
   }
@@ -1129,7 +1139,7 @@ export const generateOtpCodesByIds = async (recordIds) => {
 
   for (const recordId of recordIds) {
     try {
-      const record = await activeVaultGet(recordId)
+      const record = await activeVaultGetRaw(`record/${recordId}`)
       if (!record?.data?.otp) continue
 
       const otp = record.data.otp
@@ -1158,7 +1168,7 @@ export const generateHotpNext = async (recordId) => {
     throw new Error('Vault not initialised')
   }
 
-  const record = await activeVaultGet(recordId)
+  const record = await activeVaultGetRaw(`record/${recordId}`)
   if (!record?.data?.otp || record.data.otp.type !== 'HOTP') {
     throw new Error('Record does not have HOTP configuration')
   }
@@ -1169,7 +1179,7 @@ export const generateHotpNext = async (recordId) => {
   const { code } = generateHOTP({ ...otp, counter: newCounter })
 
   record.data.otp = { ...otp, counter: newCounter }
-  await activeVaultAdd(recordId, record)
+  await activeVaultAdd(`record/${recordId}`, record)
 
   return { code, counter: newCounter }
 }
@@ -1185,14 +1195,14 @@ export const addOtpToRecord = async (recordId, otpInput) => {
     throw new Error('Vault not initialised')
   }
 
-  const record = await activeVaultGet(recordId)
+  const record = await activeVaultGetRaw(`record/${recordId}`)
   if (!record) {
     throw new Error('Record not found')
   }
 
   const otpConfig = parseOtpInput(otpInput)
   record.data.otp = otpConfig
-  await activeVaultAdd(recordId, record)
+  await activeVaultAdd(`record/${recordId}`, record)
 }
 
 /**
@@ -1205,11 +1215,11 @@ export const removeOtpFromRecord = async (recordId) => {
     throw new Error('Vault not initialised')
   }
 
-  const record = await activeVaultGet(recordId)
+  const record = await activeVaultGetRaw(`record/${recordId}`)
   if (!record) {
     throw new Error('Record not found')
   }
 
   delete record.data.otp
-  await activeVaultAdd(recordId, record)
+  await activeVaultAdd(`record/${recordId}`, record)
 }
