@@ -1,5 +1,7 @@
 import * as OTPAuth from 'otpauth/dist/otpauth.esm.js'
 
+import { OTP_TYPE } from '../../constants/otpType'
+
 /**
  * @param {string} input
  * @returns {boolean}
@@ -17,12 +19,12 @@ export const parseOtpauthUri = (uri) => {
 
   const config = {
     secret: parsed.secret.base32,
-    type: parsed instanceof OTPAuth.TOTP ? 'TOTP' : 'HOTP',
+    type: parsed instanceof OTPAuth.TOTP ? OTP_TYPE.TOTP : OTP_TYPE.HOTP,
     algorithm: parsed.algorithm,
     digits: parsed.digits
   }
 
-  if (config.type === 'TOTP') {
+  if (config.type === OTP_TYPE.TOTP) {
     config.period = parsed.period
   } else {
     config.counter = parsed.counter
@@ -58,7 +60,7 @@ export const parseOtpInput = (input) => {
 
   return {
     secret: trimmed,
-    type: 'TOTP',
+    type: OTP_TYPE.TOTP,
     algorithm: 'SHA1',
     digits: 6,
     period: 30

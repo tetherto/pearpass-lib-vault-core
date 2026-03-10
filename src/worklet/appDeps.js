@@ -11,6 +11,7 @@ import { getForbiddenRoots } from './getForbiddenRoots'
 import { generateTOTP, generateHOTP, parseOtpInput } from './otp/index'
 import { PearPassPairer } from './pearpassPairer'
 import { RateLimiter } from './rateLimiter'
+import { OTP_TYPE } from '../constants/otpType'
 import { getConfig } from './utils/swarm'
 import { validateAndSanitizePath } from './validateAndSanitizePath'
 import { defaultMirrorKeys } from '../constants/defaultBlindMirrors'
@@ -1070,12 +1071,9 @@ export const writeAndEncryptJobFile = async (jobs) => {
 }
 
 /**
- * Enriches a record for client consumption.
- * If the record has an OTP config, generates the current code,
- * strips the secret, and attaches `otpPublic` to `record.data`.
- * The original record in storage is never mutated.
- * @param {object} record
- * @returns {object}
+ * Reads a raw record from the active vault by key without enrichment.
+ * @param {string} key
+ * @returns {Promise<object|null>}
  */
 const activeVaultGetRaw = async (key) => {
   if (!isActiveVaultInitialized) {
@@ -1087,6 +1085,14 @@ const activeVaultGetRaw = async (key) => {
   return JSON.parse(res.value)
 }
 
+/**
+ * Enriches a record for client consumption.
+ * If the record has an OTP config, generates the current code,
+ * strips the secret, and attaches `otpPublic` to the record.
+ * The original record in storage is never mutated.
+ * @param {object} record
+ * @returns {object}
+ */
 export const enrichRecordForClient = (record) => {
   if (!record?.data?.otp) {
     return record
@@ -1106,12 +1112,12 @@ export const enrichRecordForClient = (record) => {
       label: otp.label
     }
 
-    if (otp.type === 'TOTP') {
+    if (otp.type === OTP_TYPE.TOTP) {
       const { code, timeRemaining } = generateTOTP(otp)
       otpPublic.period = otp.period
       otpPublic.currentCode = code
       otpPublic.timeRemaining = timeRemaining
-    } else if (otp.type === 'HOTP') {
+    } else if (otp.type === OTP_TYPE.HOTP) {
       const { code } = generateHOTP(otp)
       otpPublic.currentCode = code
     }
@@ -1143,10 +1149,10 @@ export const generateOtpCodesByIds = async (recordIds) => {
       if (!record?.data?.otp) continue
 
       const otp = record.data.otp
-      if (otp.type === 'TOTP') {
+      if (otp.type === OTP_TYPE.TOTP) {
         const { code, timeRemaining } = generateTOTP(otp)
         results.push({ recordId, code, timeRemaining })
-      } else if (otp.type === 'HOTP') {
+      } else if (otp.type === OTP_TYPE.HOTP) {
         const { code } = generateHOTP(otp)
         results.push({ recordId, code })
       }
@@ -1169,7 +1175,7 @@ export const generateHotpNext = async (recordId) => {
   }
 
   const record = await activeVaultGetRaw(`record/${recordId}`)
-  if (!record?.data?.otp || record.data.otp.type !== 'HOTP') {
+  if (!record?.data?.otp || record.data.otp.type !== OTP_TYPE.HOTP) {
     throw new Error('Record does not have HOTP configuration')
   }
 

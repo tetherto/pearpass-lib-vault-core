@@ -374,9 +374,9 @@ export const handleRpcCommand = async (req) => {
 
     case API.ACTIVE_VAULT_GET:
       try {
-        const getResult = await activeVaultGet(requestData?.key)
+        const record = await activeVaultGet(requestData?.key)
 
-        req.reply(JSON.stringify({ data: getResult }))
+        req.reply(JSON.stringify({ data: record }))
       } catch (error) {
         req.reply(
           JSON.stringify({
