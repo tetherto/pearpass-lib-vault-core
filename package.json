@@ -30,7 +30,6 @@
     "hyperdht": "^6.28.0",
     "hyperswarm": "^4.16.0",
     "otpauth": "^9.5.0",
-    "pearpass-utils-password-check": "0.0.x",
     "rocksdb-native": "^3.11.4",
     "sodium-native": "^5.0.10",
     "udx-native": "^1.19.2"
@@ -41,10 +40,6 @@
     "babel-jest": "30.2.0",
     "husky": "^9.1.7",
     "jest": "30.2.0"
-  },
-  "peerDependencies": {
-    "pear-apps-utils-validator": "0.0.x",
-    "tether-dev-docs": "0.0.x"
   },
   "optionalDependencies": {
     "@tetherto/swarmconf": "git+https://github.com/tetherto/tether-hp-conf-swarm.git"
