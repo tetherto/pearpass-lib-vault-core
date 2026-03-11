@@ -7,7 +7,16 @@ import { destroySharedDHT } from './utils/dht'
 import { isPearWorker } from './utils/isPearWorker'
 import { workletLogger } from './utils/workletLogger'
 
-const ipc = isPearWorker() ? Pear.worker.pipe() : BareKit.IPC
+const ipc = isPearWorker()
+  ? Pear.worker.pipe()
+  : (typeof BareKit !== 'undefined' && BareKit?.IPC) ||
+    global[Symbol.for('bare.sidecar.ipc')]
+
+if (!ipc) {
+  throw new Error(
+    'Worklet IPC not available (not Pear worker and no bare.sidecar.ipc)'
+  )
+}
 
 ipc.on('data', async (buffer) => {
   const rawData = buffer.toString('utf8')
@@ -20,7 +29,7 @@ ipc.on('data', async (buffer) => {
       command: command,
       data: JSON.stringify(data),
       reply: (data) => {
-        BareKit.IPC.write(data)
+        ipc.write(data)
       },
       createRequestStream: () => {
         if (data?.filePath) {

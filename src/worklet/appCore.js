@@ -59,14 +59,14 @@ import { faviconManager } from './faviconManager'
 import { getDecryptionKey } from './getDecryptionKey'
 import { hashPassword } from './hashPassword'
 import { masterPasswordManager } from './masterPasswordManager'
-import { withMirrorValidation } from '../middleware/validateMirrorKeyViaDHT'
+import { withMirrorValidation } from '../middleware/validateMirrorKeyViaDHT.js'
 import { destroySharedDHT } from './utils/dht'
-import { receiveFileStream } from '../utils/recieveFileStream'
-import { sendFileStream } from '../utils/sendFileStream'
+import { receiveFileStream } from '../utils/recieveFileStream.js'
+import { sendFileStream } from '../utils/sendFileStream.js'
 import { isPearWorker } from './utils/isPearWorker'
 import { parseRequestData } from './utils/parseRequestData'
 import { workletLogger } from './utils/workletLogger'
-import { validateInviteCode } from '../utils/validateInviteCode'
+import { validateInviteCode } from '../utils/validateInviteCode.js'
 
 let rpc = null
 
@@ -1039,7 +1039,26 @@ export const handleRpcCommand = async (req) => {
 }
 
 export const setupIPC = () => {
-  const ipc = isPearWorker() ? Pear.worker.pipe() : BareKit.IPC
+  const ipc = isPearWorker()
+    ? Pear.worker.pipe()
+    : // New bare-sidecar exposes IPC on Bare.IPC.
+      // eslint-disable-next-line no-undef
+      (typeof Bare !== 'undefined' && Bare?.IPC) ||
+      // Older pear-sidecar builds exposed IPC via BareKit.IPC.
+      (typeof BareKit !== 'undefined' && BareKit?.IPC) ||
+      // Legacy sidecar runtime set global symbol.
+      global[Symbol.for('bare.sidecar.ipc')]
+
+  if (!ipc) {
+    throw new Error(
+      'Worklet IPC not available (not Pear worker and no bare.sidecar.ipc)'
+    )
+  }
+
+  // Bare-sidecar runtime sets ipc.unref(), so the process would exit. Keep the process alive.
+  if (typeof ipc.ref === 'function') {
+    ipc.ref()
+  }
 
   ipc.on('close', async () => {
     await destroySharedDHT()

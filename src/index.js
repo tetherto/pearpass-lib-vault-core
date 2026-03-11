@@ -1,2 +1,2 @@
-export { PearpassVaultClient } from './pearpassVaultClient'
-export { workletLogger } from './worklet/utils/workletLogger'
+export { PearpassVaultClient } from './pearpassVaultClient/index.js'
+export { workletLogger } from './worklet/utils/workletLogger.js'

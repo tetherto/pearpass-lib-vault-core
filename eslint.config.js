@@ -1,6 +1,9 @@
 import { eslintConfig } from 'tether-dev-docs'
 
 export default [
+  {
+    ignores: ['dist', 'src/worklet/app.cjs']
+  },
   ...eslintConfig,
   {
     languageOptions: {
@@ -10,7 +13,6 @@ export default [
     },
     rules: {
       'no-underscore-dangle': 'off'
-    },
-    ignores: ['dist']
+    }
   }
 ]

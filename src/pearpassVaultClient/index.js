@@ -3,9 +3,9 @@ import EventEmitter from 'events'
 import RPC from 'bare-rpc'
 import FramedStream from 'framed-stream'
 
-import { receiveFileStream } from '../utils/recieveFileStream'
-import { sendFileStream } from '../utils/sendFileStream'
-import { API, API_BY_VALUE } from '../worklet/api'
+import { receiveFileStream } from '../utils/recieveFileStream.js'
+import { sendFileStream } from '../utils/sendFileStream.js'
+import { API, API_BY_VALUE } from '../worklet/api.js'
 
 export class PearpassVaultClient extends EventEmitter {
   constructor(ipc, storagePath, { debugMode = false } = {}) {
