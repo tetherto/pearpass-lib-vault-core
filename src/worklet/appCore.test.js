@@ -157,6 +157,12 @@ jest.mock('../middleware/validateMirrorKeyViaDHT', () => ({
   withMirrorValidation: (fn) => fn
 }))
 
+jest.mock('./faviconManager', () => ({
+  faviconManager: {
+    fetchFavicon: jest.fn()
+  }
+}))
+
 // RPC + FramedStream mocks
 const mockRPCInstance = {}
 const mockRPCConstructor = jest.fn(() => mockRPCInstance)
@@ -216,7 +222,8 @@ jest.mock('./api', () => {
     BLIND_MIRRORS_ADD_DEFAULTS: 38,
     BLIND_MIRRORS_REMOVE_ALL: 39,
     BACKGROUND_BEGIN: 42,
-    BACKGROUND_END: 43
+    BACKGROUND_END: 43,
+    FETCH_FAVICON: 44
   }
 
   const API_BY_VALUE = Object.entries(API).reduce((acc, [key, value]) => {
@@ -370,6 +377,76 @@ describe('handleRpcCommand', () => {
 
     const payload = JSON.parse(reply.mock.calls[0][0])
     expect(payload).toEqual({ success: true })
+  })
+
+  test('FETCH_FAVICON: success path', async () => {
+    const { faviconManager } = require('./faviconManager')
+    const mockFavicon = 'data:image/png;base64,abcdef'
+    faviconManager.fetchFavicon.mockResolvedValue(mockFavicon)
+
+    parseRequestData.mockReturnValue({ url: 'https://example.com' })
+
+    const reply = jest.fn()
+    const req = {
+      command: API.FETCH_FAVICON,
+      data: { url: 'https://example.com' },
+      reply
+    }
+
+    await handleRpcCommand(req)
+
+    expect(faviconManager.fetchFavicon).toHaveBeenCalledWith(
+      'https://example.com'
+    )
+
+    const payload = JSON.parse(reply.mock.calls[0][0])
+    expect(payload).toEqual({
+      success: true,
+      data: {
+        url: 'https://example.com',
+        favicon: mockFavicon
+      }
+    })
+  })
+
+  test('FETCH_FAVICON: returns error when favicon is null', async () => {
+    const { faviconManager } = require('./faviconManager')
+    faviconManager.fetchFavicon.mockResolvedValue(null)
+
+    parseRequestData.mockReturnValue({ url: 'https://example.com' })
+
+    const reply = jest.fn()
+    const req = {
+      command: API.FETCH_FAVICON,
+      data: { url: 'https://example.com' },
+      reply
+    }
+
+    await handleRpcCommand(req)
+
+    const payload = JSON.parse(reply.mock.calls[0][0])
+    expect(payload.success).toBe(false)
+    expect(payload.error).toContain('Favicon not found')
+  })
+
+  test('FETCH_FAVICON: returns error when fetch throws', async () => {
+    const { faviconManager } = require('./faviconManager')
+    faviconManager.fetchFavicon.mockRejectedValue(new Error('Fetch failed'))
+
+    parseRequestData.mockReturnValue({ url: 'https://example.com' })
+
+    const reply = jest.fn()
+    const req = {
+      command: API.FETCH_FAVICON,
+      data: { url: 'https://example.com' },
+      reply
+    }
+
+    await handleRpcCommand(req)
+
+    const payload = JSON.parse(reply.mock.calls[0][0])
+    expect(payload.success).toBe(false)
+    expect(payload.error).toContain('Fetch failed')
   })
 
   test('MASTER_VAULT_GET: success path', async () => {

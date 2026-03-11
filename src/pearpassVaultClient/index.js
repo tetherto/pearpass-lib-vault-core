@@ -693,4 +693,138 @@ export class PearpassVaultClient extends EventEmitter {
       command: API.BACKGROUND_END
     })
   }
+
+  /**
+   * Tests IPC by sending a URL to be logged by the backend.
+   * @param {string} url - The URL to log.
+   * @returns {Promise<void>}
+   */
+  async fetchFavicon(url) {
+    return this._handleRequest({
+      command: API.FETCH_FAVICON,
+      data: { url }
+    })
+  }
+
+  /**
+   * Sets the job storage path for the worklet.
+   * @param {string} path - The job storage path to set.
+   * @returns {Promise<void>}
+   */
+  async setJobStoragePath(path) {
+    return this._handleRequest({
+      command: API.SET_JOB_STORAGE_PATH,
+      data: { path }
+    })
+  }
+
+  /**
+   * Reads and decrypts the job queue file.
+   * @returns {Promise<Array>}
+   */
+  async readJobQueue() {
+    return this._handleRequest({
+      command: API.READ_JOB_QUEUE
+    })
+  }
+
+  /**
+   * Encrypts and writes the job queue file.
+   * @param {Array} jobs - The jobs to write.
+   * @returns {Promise<void>}
+   */
+  async writeJobQueue(jobs) {
+    return this._handleRequest({
+      command: API.WRITE_JOB_QUEUE,
+      data: { jobs }
+    })
+  }
+
+  /**
+   * @param {string} data
+   * @param {string} password
+   * @returns {Promise<{
+   *   version: string,
+   *   encrypted: boolean,
+   *   algorithm: string,
+   *   kdf: string,
+   *   salt: string,
+   *   nonce: string,
+   *   ciphertext: string
+   * }>}
+   */
+  async encryptExportData(data, password) {
+    return this._handleRequest({
+      command: API.ENCRYPTION_ENCRYPT_EXPORT_DATA,
+      data: { data, password }
+    })
+  }
+
+  /**
+   * @param {Object} encryptedData
+   * @param {string} encryptedData.version
+   * @param {boolean} encryptedData.encrypted
+   * @param {string} encryptedData.algorithm
+   * @param {string} encryptedData.kdf
+   * @param {string} encryptedData.salt
+   * @param {string} encryptedData.nonce
+   * @param {string} encryptedData.ciphertext
+   * @param {string} password
+   * @returns {Promise<string>}
+   */
+  async decryptExportData(encryptedData, password) {
+    return this._handleRequest({
+      command: API.ENCRYPTION_DECRYPT_EXPORT_DATA,
+      data: { encryptedData, password }
+    })
+  }
+
+  /**
+   * Generates OTP codes for a list of record IDs.
+   * @param {string[]} recordIds
+   * @returns {Promise<Array<{ recordId: string, code: string, timeRemaining?: number }>>}
+   */
+  async generateOtpCodesByIds(recordIds) {
+    return this._handleRequest({
+      command: API.GENERATE_OTP_CODES_BY_IDS,
+      data: { recordIds }
+    })
+  }
+
+  /**
+   * Generates the next HOTP code for a record and increments the counter.
+   * @param {string} recordId
+   * @returns {Promise<{ code: string, counter: number }>}
+   */
+  async generateHotpNext(recordId) {
+    return this._handleRequest({
+      command: API.GENERATE_HOTP_NEXT,
+      data: { recordId }
+    })
+  }
+
+  /**
+   * Adds an OTP configuration to a record.
+   * @param {string} recordId
+   * @param {string} otpInput - otpauth:// URI or raw Base32 secret
+   * @returns {Promise<void>}
+   */
+  async addOtpToRecord(recordId, otpInput) {
+    return this._handleRequest({
+      command: API.ADD_OTP_TO_RECORD,
+      data: { recordId, otpInput }
+    })
+  }
+
+  /**
+   * Removes OTP configuration from a record.
+   * @param {string} recordId
+   * @returns {Promise<void>}
+   */
+  async removeOtpFromRecord(recordId) {
+    return this._handleRequest({
+      command: API.REMOVE_OTP_FROM_RECORD,
+      data: { recordId }
+    })
+  }
 }

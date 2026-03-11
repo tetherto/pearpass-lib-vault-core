@@ -99,6 +99,14 @@ console.log(githubPassword);
 await client.closeAllInstances();
 ```
 
+## Depended Submodules
+
+The following sibling submodules must be present in the workspace (they are not declared as npm dependencies):
+
+- [`pearpass-utils-password-check`](../pearpass-utils-password-check)
+- [`pear-apps-utils-validator`](../pear-apps-utils-validator)
+- [`tether-dev-docs`](../tether-dev-docs)
+
 ## Dependencies
 
 - [Autopass](https://github.com/holepunchto/autopass)

@@ -42,11 +42,20 @@ import {
   rateLimitRecordFailure,
   getRateLimitStatus,
   resetRateLimit,
-  setCoreStoreOptions
+  setCoreStoreOptions,
+  setJobStoragePath,
+  readAndDecryptJobFile,
+  writeAndEncryptJobFile,
+  generateOtpCodesByIds,
+  generateHotpNext,
+  addOtpToRecord,
+  removeOtpFromRecord
 } from './appDeps'
 import { decryptVaultKey } from './decryptVaultKey'
 import { encryptVaultKeyWithHashedPassword } from './encryptVaultKeyWithHashedPassword'
 import { encryptVaultWithKey } from './encryptVaultWithKey'
+import { encryptExportData, decryptExportData } from './exportDataEncryption'
+import { faviconManager } from './faviconManager'
 import { getDecryptionKey } from './getDecryptionKey'
 import { hashPassword } from './hashPassword'
 import { masterPasswordManager } from './masterPasswordManager'
@@ -97,6 +106,37 @@ export const handleRpcCommand = async (req) => {
           })
         )
       }
+      break
+
+    case API.FETCH_FAVICON:
+      try {
+        const faviconBase64 = await faviconManager.fetchFavicon(
+          requestData?.url
+        )
+
+        if (!faviconBase64) {
+          throw new Error('Favicon not found')
+        }
+
+        req.reply(
+          JSON.stringify({
+            success: true,
+            data: {
+              url: requestData?.url,
+              favicon: faviconBase64
+            }
+          })
+        )
+      } catch (err) {
+        workletLogger.error('Error fetching favicon:', err)
+        req.reply(
+          JSON.stringify({
+            success: false,
+            error: err.toString()
+          })
+        )
+      }
+
       break
 
     case API.MASTER_VAULT_INIT:
@@ -319,9 +359,9 @@ export const handleRpcCommand = async (req) => {
 
     case API.ACTIVE_VAULT_LIST:
       try {
-        const res = await activeVaultList(requestData?.filterKey)
+        const listResults = await activeVaultList(requestData?.filterKey)
 
-        req.reply(JSON.stringify({ data: res }))
+        req.reply(JSON.stringify({ data: listResults }))
       } catch (error) {
         req.reply(
           JSON.stringify({
@@ -334,9 +374,9 @@ export const handleRpcCommand = async (req) => {
 
     case API.ACTIVE_VAULT_GET:
       try {
-        const res = await activeVaultGet(requestData?.key)
+        const record = await activeVaultGet(requestData?.key)
 
-        req.reply(JSON.stringify({ data: res }))
+        req.reply(JSON.stringify({ data: record }))
       } catch (error) {
         req.reply(
           JSON.stringify({
@@ -710,6 +750,40 @@ export const handleRpcCommand = async (req) => {
 
       break
 
+    case API.ENCRYPTION_ENCRYPT_EXPORT_DATA:
+      try {
+        const { data, password } = requestData
+
+        const encryptedData = encryptExportData(data, password)
+
+        req.reply(JSON.stringify({ data: encryptedData }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error encrypting export data: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case API.ENCRYPTION_DECRYPT_EXPORT_DATA:
+      try {
+        const { encryptedData, password } = requestData
+
+        const decryptedData = decryptExportData(encryptedData, password)
+
+        req.reply(JSON.stringify({ data: decryptedData }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error decrypting export data: ${error.message || error}`
+          })
+        )
+      }
+
+      break
+
     case API.ENCRYPTION_CLOSE:
       try {
         await encryptionClose()
@@ -843,6 +917,111 @@ export const handleRpcCommand = async (req) => {
         req.reply(
           JSON.stringify({
             error: `Error resuming instances: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case API.SET_JOB_STORAGE_PATH:
+      try {
+        setJobStoragePath(requestData?.path)
+
+        req.reply(JSON.stringify({ success: true }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error setting job storage path: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case API.READ_JOB_QUEUE:
+      try {
+        const jobs = await readAndDecryptJobFile()
+
+        req.reply(JSON.stringify({ data: jobs }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error reading job queue: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case API.WRITE_JOB_QUEUE:
+      try {
+        await writeAndEncryptJobFile(requestData?.jobs)
+
+        req.reply(JSON.stringify({ success: true }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error writing job queue: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case API.GENERATE_OTP_CODES_BY_IDS:
+      try {
+        const otpCodes = await generateOtpCodesByIds(requestData?.recordIds)
+
+        req.reply(JSON.stringify({ data: otpCodes }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error generating OTP codes: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case API.GENERATE_HOTP_NEXT:
+      try {
+        const hotpResult = await generateHotpNext(requestData?.recordId)
+
+        req.reply(JSON.stringify({ data: hotpResult }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error generating next HOTP code: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case API.ADD_OTP_TO_RECORD:
+      try {
+        await addOtpToRecord(requestData?.recordId, requestData?.otpInput)
+
+        req.reply(JSON.stringify({ success: true }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error adding OTP to record: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case API.REMOVE_OTP_FROM_RECORD:
+      try {
+        await removeOtpFromRecord(requestData?.recordId)
+
+        req.reply(JSON.stringify({ success: true }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error removing OTP from record: ${error}`
           })
         )
       }
