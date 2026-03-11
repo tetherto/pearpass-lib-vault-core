@@ -29,6 +29,7 @@
     "hypercore-id-encoding": "^1.3.0",
     "hyperdht": "^6.28.0",
     "hyperswarm": "^4.16.0",
+    "otpauth": "^9.5.0",
     "rocksdb-native": "^3.11.4",
     "sodium-native": "^5.0.10",
     "udx-native": "^1.19.2"

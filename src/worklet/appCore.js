@@ -45,7 +45,11 @@ import {
   setCoreStoreOptions,
   setJobStoragePath,
   readAndDecryptJobFile,
-  writeAndEncryptJobFile
+  writeAndEncryptJobFile,
+  generateOtpCodesByIds,
+  generateHotpNext,
+  addOtpToRecord,
+  removeOtpFromRecord
 } from './appDeps'
 import { decryptVaultKey } from './decryptVaultKey'
 import { encryptVaultKeyWithHashedPassword } from './encryptVaultKeyWithHashedPassword'
@@ -355,9 +359,9 @@ export const handleRpcCommand = async (req) => {
 
     case API.ACTIVE_VAULT_LIST:
       try {
-        const res = await activeVaultList(requestData?.filterKey)
+        const listResults = await activeVaultList(requestData?.filterKey)
 
-        req.reply(JSON.stringify({ data: res }))
+        req.reply(JSON.stringify({ data: listResults }))
       } catch (error) {
         req.reply(
           JSON.stringify({
@@ -370,9 +374,9 @@ export const handleRpcCommand = async (req) => {
 
     case API.ACTIVE_VAULT_GET:
       try {
-        const res = await activeVaultGet(requestData?.key)
+        const record = await activeVaultGet(requestData?.key)
 
-        req.reply(JSON.stringify({ data: res }))
+        req.reply(JSON.stringify({ data: record }))
       } catch (error) {
         req.reply(
           JSON.stringify({
@@ -958,6 +962,66 @@ export const handleRpcCommand = async (req) => {
         req.reply(
           JSON.stringify({
             error: `Error writing job queue: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case API.GENERATE_OTP_CODES_BY_IDS:
+      try {
+        const otpCodes = await generateOtpCodesByIds(requestData?.recordIds)
+
+        req.reply(JSON.stringify({ data: otpCodes }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error generating OTP codes: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case API.GENERATE_HOTP_NEXT:
+      try {
+        const hotpResult = await generateHotpNext(requestData?.recordId)
+
+        req.reply(JSON.stringify({ data: hotpResult }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error generating next HOTP code: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case API.ADD_OTP_TO_RECORD:
+      try {
+        await addOtpToRecord(requestData?.recordId, requestData?.otpInput)
+
+        req.reply(JSON.stringify({ success: true }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error adding OTP to record: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case API.REMOVE_OTP_FROM_RECORD:
+      try {
+        await removeOtpFromRecord(requestData?.recordId)
+
+        req.reply(JSON.stringify({ success: true }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error removing OTP from record: ${error}`
           })
         )
       }
