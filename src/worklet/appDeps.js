@@ -1011,6 +1011,8 @@ export const readAndDecryptJobFile = async () => {
   } finally {
     sodium.sodium_memzero(key)
     sodium.sodium_memzero(plaintext)
+    sodium.sodium_free(key)
+    sodium.sodium_free(plaintext)
   }
 }
 
@@ -1068,6 +1070,9 @@ export const writeAndEncryptJobFile = async (jobs) => {
     sodium.sodium_memzero(nonce)
     sodium.sodium_memzero(key)
     sodium.sodium_memzero(ciphertext)
+    sodium.sodium_free(nonce)
+    sodium.sodium_free(key)
+    sodium.sodium_free(ciphertext)
   }
 }
 

@@ -36,5 +36,8 @@ export const hashPassword = (password) => {
     sodium.sodium_memzero(hashedPassword)
     sodium.sodium_memzero(salt)
     sodium.sodium_memzero(passwordBuffer)
+    sodium.sodium_free(hashedPassword)
+    sodium.sodium_free(salt)
+    sodium.sodium_free(passwordBuffer)
   }
 }

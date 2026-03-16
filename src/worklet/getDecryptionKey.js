@@ -33,5 +33,7 @@ export const getDecryptionKey = (data) => {
   } finally {
     sodium.sodium_memzero(password)
     sodium.sodium_memzero(hashedPassword)
+    sodium.sodium_free(password)
+    sodium.sodium_free(hashedPassword)
   }
 }

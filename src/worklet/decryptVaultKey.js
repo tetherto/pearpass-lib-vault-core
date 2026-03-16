@@ -35,5 +35,7 @@ export const decryptVaultKey = (data) => {
   } finally {
     sodium.sodium_memzero(hashedPassword)
     sodium.sodium_memzero(plainText)
+    sodium.sodium_free(hashedPassword)
+    sodium.sodium_free(plainText)
   }
 }

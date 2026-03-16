@@ -45,5 +45,9 @@ export const encryptVaultWithKey = (hashedPassword, key) => {
     sodium.sodium_memzero(keyBuffer)
     sodium.sodium_memzero(ciphertext)
     sodium.sodium_memzero(hashedPasswordBuf)
+    sodium.sodium_free(nonce)
+    sodium.sodium_free(keyBuffer)
+    sodium.sodium_free(ciphertext)
+    sodium.sodium_free(hashedPasswordBuf)
   }
 }
