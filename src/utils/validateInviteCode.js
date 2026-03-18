@@ -1,4 +1,4 @@
-import { Validator } from 'pear-apps-utils-validator'
+import { Validator } from '@tetherto/pear-apps-utils-validator'
 
 import { logger } from './logger'
 
