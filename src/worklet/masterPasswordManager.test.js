@@ -48,7 +48,7 @@ jest.mock('./hashPassword', () => ({
   hashPassword: jest.fn()
 }))
 
-jest.mock('pearpass-utils-password-check', () => ({
+jest.mock('@tetherto/pearpass-utils-password-check', () => ({
   constantTimeHashCompare: jest.fn()
 }))
 
