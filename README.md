@@ -5,6 +5,7 @@ A bare runtime focused library for managing encrypted password vaults for Pearpa
 ## Table of Contents
 
 - [Features](#features)
+- [Security Notice](#security-notice)
 - [Installation](#installation)
 - [Usage Examples](#usage-examples)
 - [Dependencies](#dependencies)
@@ -18,17 +19,22 @@ A bare runtime focused library for managing encrypted password vaults for Pearpa
 - Vault sharing via invite codes
 - Debug mode for development
 
+## Security Notice
+
+1. To ensure the security and integrity of your projects, please note that official PearPass packages are distributed exclusively through our GitHub organization.
+2. Any packages with similar names found on the npm registry or other third-party package managers are not affiliated with PearPass and should be strictly avoided. We recommend installing directly from this repository to ensure you are using the verified, open-source version.
+
 ## Installation
 
 ```bash
-npm install pearpass-lib-vault-core
+npm install git+https://github.com/tetherto/pearpass-lib-vault-core.git
 ```
 
 ## Usage Examples
 
 ### Initialize a vault client
 ```javascript
-import { createPearpassVaultClient } from 'pearpass-lib-vault-core';
+import { createPearpassVaultClient } from '@tetherto/pearpass-lib-vault-core';
 
 // Create a new client with a storage path
 const client = createPearpassVaultClient('/path/to/storage', {
@@ -99,14 +105,6 @@ console.log(githubPassword);
 await client.closeAllInstances();
 ```
 
-## Depended Submodules
-
-The following sibling submodules must be present in the workspace (they are not declared as npm dependencies):
-
-- [`pearpass-utils-password-check`](../pearpass-utils-password-check)
-- [`pear-apps-utils-validator`](../pear-apps-utils-validator)
-- [`tether-dev-docs`](../tether-dev-docs)
-
 ## Dependencies
 
 - [Autopass](https://github.com/holepunchto/autopass)
@@ -121,11 +119,11 @@ The following sibling submodules must be present in the workspace (they are not 
 
 ## Related Projects
 
-- [pearpass-app-mobile](https://github.com/tetherto/pearpass-app-mobile) - A mobile app for PearPass, a password manager
-- [pearpass-app-desktop](https://github.com/tetherto/pearpass-app-desktop) - A desktop app for PearPass, a password manager
-- [pearpass-lib-vault](https://github.com/tetherto/pearpass-lib-desktop) - Library for managing encrypted vaults in applications
-- [pearpass-lib-vault-desktop](https://github.com/tetherto/pearpass-lib-desktop) - Client implementation for desktop applications
-- [tether-dev-docs](https://github.com/tetherto/tether-dev-docs) - Documentations and guides for developers
+- [@tetherto/pearpass-app-mobile](https://github.com/tetherto/pearpass-app-mobile) - A mobile app for PearPass, a password manager
+- [@tetherto/pearpass-app-desktop](https://github.com/tetherto/pearpass-app-desktop) - A desktop app for PearPass, a password manager
+- [@tetherto/pearpass-lib-vault](https://github.com/tetherto/pearpass-lib-desktop) - Library for managing encrypted vaults in applications
+- [@tetherto/pearpass-lib-vault-desktop](https://github.com/tetherto/pearpass-lib-desktop) - Client implementation for desktop applications
+- [@tetherto/tether-dev-docs](https://github.com/tetherto/tether-dev-docs) - Documentations and guides for developers
 
 ## License
 
