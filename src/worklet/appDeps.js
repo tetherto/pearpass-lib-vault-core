@@ -247,6 +247,36 @@ export const initInstance = async ({ path, hashedPassword, encryptionKey }) => {
   try {
     const fullPath = buildPath(path)
 
+    // Writable boot so Autobase can linearize the view for imported vaults
+    if (CORE_STORE_OPTIONS.readOnly) {
+      let writeInstance = null
+      try {
+        const writeOpts = { ...CORE_STORE_OPTIONS, readOnly: false }
+        const writeStore = new Corestore(fullPath, writeOpts)
+        const writeConf = await getConfig(writeStore)
+
+        writeInstance = new Autopass(writeStore, {
+          encryptionKey: encryptionKey
+            ? Buffer.from(encryptionKey, 'base64')
+            : undefined,
+          blindEncryption: hashedPassword
+            ? new BlindEncryptionSodium(b4a.alloc(32, hashedPassword, 'utf-8'))
+            : undefined,
+          relayThrough: writeConf.current.blindRelays
+        })
+
+        await writeInstance.ready()
+        await writeInstance.base.update()
+      } catch (err) {
+        workletLogger.error(
+          'Writable boot failed, falling back to readOnly:',
+          err
+        )
+      } finally {
+        if (writeInstance) await writeInstance.close().catch(() => {})
+      }
+    }
+
     const store = new Corestore(fullPath, CORE_STORE_OPTIONS)
 
     if (!store) {
