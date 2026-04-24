@@ -1053,30 +1053,71 @@ export const setupIPC = () => {
   if (typeof Bare !== 'undefined') {
     workletLogger.log('Bare lifecycle events detected')
 
+    let suspendDeadline = 0
+
     const sus = new Suspendify({
+      wakeupLinger: 6_000,
+      async pollLinger () {
+        const remaining = Math.max(suspendDeadline - Date.now(), 0)
+        workletLogger.log('Suspendify pollLinger remaining', remaining)
+        return remaining
+      },
+      async presuspend () {
+        workletLogger.log('Suspendify presuspend starting')
+      },
       async suspend () {
-        workletLogger.log('Suspendify suspending instances')
-        await suspendAllInstances()
-        workletLogger.log('Instances suspended successfully')
+        try {
+          workletLogger.log('Suspendify suspending instances')
+          await suspendAllInstances()
+          workletLogger.log('Instances suspended successfully')
+
+          if (sus.interrupted) {
+            workletLogger.log('Suspend interrupted, skipping Bare.idle')
+            return
+          }
+
+          if (typeof Bare.idle === 'function') {
+            workletLogger.log('Asking Bare to go idle')
+            Bare.idle()
+          } else {
+            workletLogger.log('Bare.idle is unavailable')
+          }
+        } catch (error) {
+          workletLogger.error('Caught suspension error:', error)
+        }
+      },
+      async suspendCancelled () {
+        workletLogger.log('Suspendify suspend cancelled')
       },
       async resume () {
-        workletLogger.log('Suspendify resuming instances')
-        await resumeAllInstances()
-        workletLogger.log('Instances resumed successfully')
+        try {
+          workletLogger.log('Suspendify resuming instances')
+          await resumeAllInstances()
+          workletLogger.log('Instances resumed successfully')
+        } catch (error) {
+          workletLogger.error('Caught resume error:', error)
+        }
       }
     })
 
     // eslint-disable-next-line no-undef
     Bare.on('suspend', function (linger) {
       linger = Math.max(linger - 20_000, 0)
+      suspendDeadline = Date.now() + linger
       workletLogger.log('Bare suspend, linger', linger)
       workletLogger.log('Asking suspendify to suspend')
-      sus.suspend(linger)
+      void sus.suspend(linger)
     })
     // eslint-disable-next-line no-undef
     Bare.on('resume', function () {
+      suspendDeadline = 0
       workletLogger.log('Bare resume event detected')
-      sus.resume()
+      void sus.resume()
+    })
+    // eslint-disable-next-line no-undef
+    Bare.on('idle', function () {
+      // eslint-disable-next-line no-console
+      console.log('Bare has fully idled')
     })
   }
 
