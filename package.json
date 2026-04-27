@@ -44,6 +44,6 @@
     "jest": "30.2.0"
   },
   "optionalDependencies": {
-    "@tetherto/swarmconf": "git+https://github.com/tetherto/tether-hp-conf-swarm.git"
+    "@tetherto/swarmconf": "^1.0.0"
   }
 }
