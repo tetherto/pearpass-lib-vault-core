@@ -44,7 +44,7 @@ const mockDecryptVaultKey = jest.fn()
 
 // --- Module mocks ---
 jest.mock('./appDeps', () => ({
-  vaultsInit: (...args) => mockVaultsInit(...args),
+  masterVaultInit: (...args) => mockVaultsInit(...args),
   getIsVaultsInitialized: () => mockGetIsVaultsInitialized(),
   vaultsGet: (...args) => mockVaultsGet(...args),
   closeVaultsInstance: (...args) => mockCloseVaultsInstance(...args),
@@ -241,7 +241,8 @@ jest.mock('./utils/isPearWorker', () => ({
 
 // These are accessed inside setupIPC
 global.Bare = {
-  exit: jest.fn()
+  exit: jest.fn(),
+  on: jest.fn()
 }
 
 global.Pear = {
@@ -286,7 +287,10 @@ describe('handleRpcCommand', () => {
 
     await handleRpcCommand(req)
 
-    expect(mockVaultsInit).toHaveBeenCalledWith('secret-key', {})
+    expect(mockVaultsInit).toHaveBeenCalledWith({
+      encryptionKey: 'secret-key',
+      hashedPassword: undefined
+    })
     expect(reply).toHaveBeenCalledTimes(1)
 
     const payload = JSON.parse(reply.mock.calls[0][0])
@@ -605,11 +609,10 @@ describe('handleRpcCommand', () => {
 
     await handleRpcCommand(req)
 
-    expect(mockInitActiveVaultInstance).toHaveBeenCalledWith(
-      'vault-id',
-      'key',
-      {}
-    )
+    expect(mockInitActiveVaultInstance).toHaveBeenCalledWith({
+      id: 'vault-id',
+      encryptionKey: 'key'
+    })
     expect(reply).toHaveBeenCalledTimes(1)
 
     const payload = JSON.parse(reply.mock.calls[0][0])
@@ -873,7 +876,7 @@ describe('handleRpcCommand', () => {
 
     await handleRpcCommand(req)
 
-    expect(mockEncryptionInit).toHaveBeenCalledWith({})
+    expect(mockEncryptionInit).toHaveBeenCalledWith()
     expect(reply).toHaveBeenCalledTimes(1)
 
     const payload = JSON.parse(reply.mock.calls[0][0])

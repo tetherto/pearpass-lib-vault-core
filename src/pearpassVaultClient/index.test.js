@@ -97,6 +97,8 @@ jest.mock('../worklet/api', () => ({
     MASTER_PASSWORD_CREATE: 'MASTER_PASSWORD_CREATE',
     MASTER_PASSWORD_INIT_WITH_PASSWORD: 'MASTER_PASSWORD_INIT_WITH_PASSWORD',
     MASTER_PASSWORD_UPDATE: 'MASTER_PASSWORD_UPDATE',
+    MASTER_PASSWORD_INIT_WITH_CREDENTIALS:
+      'MASTER_PASSWORD_INIT_WITH_CREDENTIALS',
     MASTER_PASSWORD_DERIVE_HASH: 'MASTER_PASSWORD_DERIVE_HASH',
     ENCRYPTION_INIT: 'ENCRYPTION_INIT',
     ENCRYPTION_GET_STATUS: 'ENCRYPTION_GET_STATUS',
@@ -130,7 +132,9 @@ describe('PearpassVaultClient', () => {
   })
 
   it('should call setStoragePath in constructor if storagePath is provided', async () => {
-    const spy = jest.spyOn(PearpassVaultClient.prototype, 'setStoragePath')
+    const spy = jest
+      .spyOn(PearpassVaultClient.prototype, 'setStoragePath')
+      .mockImplementation(() => {})
     new PearpassVaultClient(ipcMock, '/another/path')
     expect(spy).toHaveBeenCalledWith('/another/path')
     spy.mockRestore()
@@ -138,16 +142,16 @@ describe('PearpassVaultClient', () => {
 
   it('should throw error for unknown command in _handleRequest', async () => {
     await expect(
-      client.handleRequest({ command: 'UNKNOWN_COMMAND' })
+      client._handleRequest({ command: 'UNKNOWN_COMMAND' })
     ).rejects.toThrow('Unknown command:')
   })
 
   it('should throw ELOCKED error in _handleError', () => {
-    expect(() => client.handleError({ error: 'ELOCKED' })).toThrow('ELOCKED')
+    expect(() => client._handleError({ error: 'ELOCKED' })).toThrow('ELOCKED')
   })
 
   it('should throw generic error in _handleError', () => {
-    expect(() => client.handleError({ error: 'Some error' })).toThrow(
+    expect(() => client._handleError({ error: 'Some error' })).toThrow(
       'Some error'
     )
   })
@@ -250,7 +254,9 @@ describe('PearpassVaultClient', () => {
   })
 
   it('should call activeVaultAddFile and log', async () => {
-    const logSpy = jest.spyOn(client.logger, 'log')
+    const logSpy = jest
+      .spyOn(client._logger, 'log')
+      .mockImplementation(() => {})
     await client.activeVaultAddFile('fileKey', Buffer.from('data'))
     expect(logSpy).toHaveBeenCalledWith('Adding file to active vault:', {
       key: 'fileKey'
@@ -267,7 +273,9 @@ describe('PearpassVaultClient', () => {
     client.rpc.request = () => {
       throw new Error('fail')
     }
-    const errorSpy = jest.spyOn(client.logger, 'error')
+    const errorSpy = jest
+      .spyOn(client._logger, 'error')
+      .mockImplementation(() => {})
     await expect(
       client.activeVaultAddFile('fileKey', Buffer.from('data'))
     ).rejects.toThrow('fail')
@@ -281,7 +289,9 @@ describe('PearpassVaultClient', () => {
     client.rpc.request = () => {
       throw new Error('fail')
     }
-    const errorSpy = jest.spyOn(client.logger, 'error')
+    const errorSpy = jest
+      .spyOn(client._logger, 'error')
+      .mockImplementation(() => {})
     await client.activeVaultGetFile('fileKey')
     expect(errorSpy).toHaveBeenCalledWith(
       'Error getting file from active vault:',

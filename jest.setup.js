@@ -5,3 +5,8 @@ global.BareKit = {
     emit: jest.fn()
   }
 }
+
+global.Bare = {
+  platform: 'posix',
+  on: jest.fn()
+}

@@ -65,12 +65,12 @@ ipc.on('data', async (buffer) => {
 
 ipc.on('close', async () => {
   await destroySharedDHT()
-  // eslint-disable-next-line no-undef
+
   Bare.exit(0)
 })
 
 ipc.on('end', async () => {
   await destroySharedDHT()
-  // eslint-disable-next-line no-undef
+
   Bare.exit(0)
 })

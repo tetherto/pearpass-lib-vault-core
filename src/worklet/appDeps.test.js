@@ -1,3 +1,18 @@
+// bare-fs uses `using` declarations Jest's parser can't handle; stub the
+// methods appDeps.js actually calls (mkdir, sync helpers, promises.mkdir).
+jest.mock('bare-fs', () => ({
+  __esModule: true,
+  default: {
+    mkdirSync: jest.fn(),
+    readFileSync: jest.fn(),
+    writeFileSync: jest.fn(),
+    renameSync: jest.fn(),
+    promises: {
+      mkdir: jest.fn().mockResolvedValue(undefined)
+    }
+  }
+}))
+
 jest.mock('bare-crypto', () => ({
   randomBytes: (n) => Buffer.alloc(n),
   createCipheriv: () => ({
@@ -80,7 +95,14 @@ jest.mock('autopass', () => {
     pairInstance: jest.fn().mockResolvedValue(),
     core: {
       ready: jest.fn().mockResolvedValue()
-    }
+    },
+    base: {
+      update: jest.fn().mockResolvedValue(),
+      view: { flush: jest.fn().mockResolvedValue() }
+    },
+    getMirror: jest.fn().mockResolvedValue([]),
+    addMirror: jest.fn().mockResolvedValue(),
+    removeMirror: jest.fn().mockResolvedValue()
   }))
 
   mockAutopass.pair = jest.fn().mockReturnValue(mockPair)
@@ -165,6 +187,11 @@ jest.mock('@tetherto/swarmconf', () =>
       blindRelays: []
     }
   }))
+)
+
+// blind-encryption-sodium pulls sodium-universal native bindings; stub it.
+jest.mock('blind-encryption-sodium', () =>
+  jest.fn().mockImplementation(() => ({}))
 )
 
 jest.mock('./utils/isPearWorker', () => ({
@@ -254,28 +281,25 @@ describe('appDeps module functions (excluding encryption)', () => {
   })
 
   describe('Vaults initialization and closing', () => {
-    beforeEach(() => {
-      jest.spyOn(appDeps, 'initInstance').mockResolvedValue(
-        appDeps.dummyInstance || {
-          ready: jest.fn().mockResolvedValue(),
-          close: jest.fn().mockResolvedValue(),
-          add: jest.fn().mockResolvedValue()
-        }
-      )
-    })
-    afterEach(() => {
-      jest.restoreAllMocks()
+    afterEach(async () => {
+      await appDeps.closeAllInstances()
     })
 
-    test('vaultsInit sets vaultsInitialized to true', async () => {
+    test('masterVaultInit sets vaultsInitialized to true', async () => {
       await appDeps.setStoragePath('/home/testuser/vaultdata')
-      await appDeps.vaultsInit('any-password')
+      await appDeps.masterVaultInit({
+        encryptionKey: 'key',
+        hashedPassword: 'pw'
+      })
       expect(appDeps.getIsVaultsInitialized()).toBe(true)
     })
 
     test('closeVaultsInstance resets vaultsInitialized to false', async () => {
       await appDeps.setStoragePath('/home/testuser/vaultdata')
-      await appDeps.vaultsInit('any-password')
+      await appDeps.masterVaultInit({
+        encryptionKey: 'key',
+        hashedPassword: 'pw'
+      })
       expect(appDeps.getIsVaultsInitialized()).toBe(true)
       await appDeps.closeVaultsInstance()
       expect(appDeps.getIsVaultsInitialized()).toBe(false)
@@ -283,48 +307,45 @@ describe('appDeps module functions (excluding encryption)', () => {
   })
 
   describe('Active vault functions', () => {
-    beforeEach(() => {
-      jest.spyOn(appDeps, 'initInstance').mockResolvedValue(
-        appDeps.dummyInstance || {
-          ready: jest.fn().mockResolvedValue(),
-          close: jest.fn().mockResolvedValue(),
-          add: jest.fn().mockResolvedValue(),
-          remove: jest.fn().mockResolvedValue(),
-          get: jest.fn().mockResolvedValue({
-            value: JSON.stringify({ id: 'vault-id' }),
-            file: Buffer.from('test file content')
-          }),
-          createInvite: jest.fn().mockResolvedValue('invite-code'),
-          removeAllListeners: jest.fn(),
-          on: jest.fn(),
-          encryptionKey: jest.fn().mockResolvedValue('encryption-key')
-        }
-      )
+    beforeEach(async () => {
+      // initActiveVaultInstance calls getHashedPassword → vaultsGet,
+      // so vaults must be initialized first.
+      await appDeps.setStoragePath('/home/testuser/vaultdata')
+      await appDeps.masterVaultInit({
+        encryptionKey: 'key',
+        hashedPassword: 'pw'
+      })
     })
-    afterEach(() => {
-      jest.restoreAllMocks()
+
+    afterEach(async () => {
+      await appDeps.closeAllInstances()
     })
 
     test('initActiveVaultInstance sets active vault as initialized', async () => {
-      await appDeps.setStoragePath('/home/testuser/vaultdata')
-      await appDeps.initActiveVaultInstance('vault1', 'password')
+      await appDeps.initActiveVaultInstance({
+        id: 'vault1',
+        encryptionKey: 'key'
+      })
       expect(appDeps.getIsActiveVaultInitialized()).toBe(true)
     })
 
     test('closeActiveVaultInstance resets active vault initialization', async () => {
-      await appDeps.setStoragePath('/home/testuser/vaultdata')
-      await appDeps.initActiveVaultInstance('vault1')
+      await appDeps.initActiveVaultInstance({
+        id: 'vault1',
+        encryptionKey: 'key'
+      })
       expect(appDeps.getIsActiveVaultInitialized()).toBe(true)
       await appDeps.closeActiveVaultInstance()
       expect(appDeps.getIsActiveVaultInitialized()).toBe(false)
     })
 
     test('activeVaultAdd calls add on activeVaultInstance', async () => {
-      await appDeps.setStoragePath('/home/testuser/vaultdata')
-      await appDeps.initActiveVaultInstance('vault1')
+      await appDeps.initActiveVaultInstance({
+        id: 'vault1',
+        encryptionKey: 'key'
+      })
 
-      const mockInstance = await appDeps.getActiveVaultInstance()
-
+      const mockInstance = appDeps.getActiveVaultInstance()
       mockInstance.add = jest.fn().mockResolvedValue()
 
       await appDeps.activeVaultAdd('key1', { data: 'test' })
@@ -335,20 +356,14 @@ describe('appDeps module functions (excluding encryption)', () => {
       )
     })
 
-    test('vaultsGet calls get on vaultInstance and returns result', async () => {
-      await appDeps.setStoragePath('/home/testuser/vaultdata')
-      await appDeps.vaultsInit('vault1')
+    test('vaultsGet calls get on vaultsInstance and returns result', async () => {
       const result = await appDeps.vaultsGet('key4')
       expect(result.id).toEqual('vault-id')
       expect(result.file).toEqual(Buffer.from('test file content'))
     })
 
     test('vaultsAdd calls add on vaultsInstance', async () => {
-      await appDeps.setStoragePath('/home/testuser/vaultdata')
-      await appDeps.vaultsInit('any-password')
-
-      const mockInstance = await appDeps.getVaultsInstance()
-
+      const mockInstance = appDeps.getVaultsInstance()
       mockInstance.add = jest.fn().mockResolvedValue()
 
       await appDeps.vaultsAdd('key2', { data: 'test' })
@@ -359,11 +374,12 @@ describe('appDeps module functions (excluding encryption)', () => {
     })
 
     test('vaultRemove calls remove on activeVaultInstance', async () => {
-      await appDeps.setStoragePath('/home/testuser/vaultdata')
-      await appDeps.initActiveVaultInstance('vault1')
+      await appDeps.initActiveVaultInstance({
+        id: 'vault1',
+        encryptionKey: 'key'
+      })
 
-      const mockInstance = await appDeps.getActiveVaultInstance()
-
+      const mockInstance = appDeps.getActiveVaultInstance()
       mockInstance.remove = jest.fn().mockResolvedValue()
 
       await appDeps.vaultRemove('key3')
@@ -371,60 +387,73 @@ describe('appDeps module functions (excluding encryption)', () => {
     })
 
     test('activeVaultGet calls get on activeVaultInstance and returns result', async () => {
-      await appDeps.setStoragePath('/home/testuser/vaultdata')
-      await appDeps.initActiveVaultInstance('vault1')
+      await appDeps.initActiveVaultInstance({
+        id: 'vault1',
+        encryptionKey: 'key'
+      })
       const result = await appDeps.activeVaultGet('key4')
       expect(result.id).toEqual('vault-id')
       expect(result.file).toEqual(Buffer.from('test file content'))
     })
 
     test('createInvite returns correct invite string', async () => {
-      await appDeps.setStoragePath('/home/testuser/vaultdata')
-      await appDeps.initActiveVaultInstance('vault1')
+      await appDeps.initActiveVaultInstance({
+        id: 'vault1',
+        encryptionKey: 'key'
+      })
       const result = await appDeps.createInvite()
       expect(result).toBe('vault-id/invite-code')
     })
   })
 
   describe('List functions (vaultsList and activeVaultList)', () => {
-    const fakeListInstance = {
-      list: jest.fn().mockResolvedValue({
-        on: (event, callback) => {
-          if (event === 'data') {
-            callback({ key: 'test1', value: 1 })
-            callback({ key: 'other', value: 2 })
-            callback({ key: 'test2', value: 3 })
-          }
-          if (event === 'end') {
-            callback()
-          }
-        }
-      })
-    }
-
-    test('vaultsList returns filtered values based on filterKey', async () => {
-      jest.spyOn(appDeps, 'initInstance').mockResolvedValue(fakeListInstance)
+    beforeEach(async () => {
       await appDeps.setStoragePath('/home/testuser/vaultdata')
-      await appDeps.vaultsInit('any-password')
+      await appDeps.masterVaultInit({
+        encryptionKey: 'key',
+        hashedPassword: 'pw'
+      })
+    })
+
+    afterEach(async () => {
+      await appDeps.closeAllInstances()
+    })
+
+    // The autopass mock's list emits keys ['test1', 'filter_test', 'test2']
+    // with values [1, 2, 3]. Filtering by 'test' matches the keys that
+    // start with 'test' → values 1 and 3.
+    test('vaultsList returns filtered values based on filterKey', async () => {
       const result = await appDeps.vaultsList('test')
       expect(result).toEqual([1, 3])
-      appDeps.initInstance.mockRestore()
     })
 
     test('activeVaultList returns filtered values based on filterKey', async () => {
-      jest.spyOn(appDeps, 'initInstance').mockResolvedValue(fakeListInstance)
-      await appDeps.setStoragePath('/home/testuser/vaultdata')
-      await appDeps.initActiveVaultInstance('vault1')
+      await appDeps.initActiveVaultInstance({
+        id: 'vault1',
+        encryptionKey: 'key'
+      })
       const result = await appDeps.activeVaultList('test')
       expect(result).toEqual([1, 3])
-      appDeps.initInstance.mockRestore()
     })
   })
 
   describe('Pairing functions', () => {
+    afterEach(async () => {
+      await appDeps.closeAllInstances()
+    })
+
     test('pair calls pair with invite code and returns vault id', async () => {
       await appDeps.setStoragePath('/home/testuser/vaultdata')
-      await appDeps.vaultsInit('any-password')
+      await appDeps.masterVaultInit({
+        encryptionKey: 'key',
+        hashedPassword: 'pw'
+      })
+      // PearPassPairer.pairInstance reads hashedPassword via vaultsGet.
+      const vaultsInst = appDeps.getVaultsInstance()
+      vaultsInst.get = jest.fn().mockResolvedValue({
+        value: JSON.stringify({ hashedPassword: 'hashed-pw' })
+      })
+
       const { vaultId, encryptionKey } = await appDeps.pairActiveVault(
         'vault-id/invite-code'
       )
@@ -435,12 +464,15 @@ describe('appDeps module functions (excluding encryption)', () => {
 
   describe('Blind mirrors management', () => {
     beforeEach(async () => {
-      jest.spyOn(appDeps, 'initInstance').mockResolvedValue({
-        ready: jest.fn().mockResolvedValue(),
-        close: jest.fn().mockResolvedValue()
-      })
       await appDeps.setStoragePath('/home/testuser/vaultdata')
-      await appDeps.initActiveVaultInstance('vault1')
+      await appDeps.masterVaultInit({
+        encryptionKey: 'key',
+        hashedPassword: 'pw'
+      })
+      await appDeps.initActiveVaultInstance({
+        id: 'vault1',
+        encryptionKey: 'key'
+      })
 
       const inst = appDeps.getActiveVaultInstance()
       inst.getMirror = jest.fn().mockResolvedValue([{ key: 'a' }, { key: 'b' }])
@@ -448,8 +480,8 @@ describe('appDeps module functions (excluding encryption)', () => {
       inst.removeMirror = jest.fn().mockResolvedValue()
     })
 
-    afterEach(() => {
-      jest.restoreAllMocks()
+    afterEach(async () => {
+      await appDeps.closeAllInstances()
     })
 
     test('getBlindMirrors returns mirrors from instance', async () => {
@@ -493,16 +525,20 @@ describe('appDeps module functions (excluding encryption)', () => {
   })
 
   describe('restartActiveVault', () => {
-    test('restarts instance when same vault is active', async () => {
-      jest.spyOn(appDeps, 'initInstance').mockResolvedValue({
-        ready: jest.fn().mockResolvedValue(),
-        close: jest.fn().mockResolvedValue(),
-        removeAllListeners: jest.fn(),
-        on: jest.fn()
-      })
+    afterEach(async () => {
+      await appDeps.closeAllInstances()
+    })
 
+    test('restarts instance when same vault is active', async () => {
       await appDeps.setStoragePath('/home/testuser/vaultdata')
-      await appDeps.initActiveVaultInstance('vaultX', 'encKey')
+      await appDeps.masterVaultInit({
+        encryptionKey: 'key',
+        hashedPassword: 'pw'
+      })
+      await appDeps.initActiveVaultInstance({
+        id: 'vaultX',
+        encryptionKey: 'encKey'
+      })
 
       const onUpdate = jest.fn()
       await appDeps.initListener({ vaultId: 'vaultX', onUpdate })
@@ -520,9 +556,20 @@ describe('appDeps module functions (excluding encryption)', () => {
     })
   })
   describe('initListener', () => {
+    afterEach(async () => {
+      await appDeps.closeAllInstances()
+    })
+
     test('initListener should not reinitialize if vaultId matches previous value', async () => {
       await appDeps.setStoragePath('/home/testuser/vaultdata')
-      await appDeps.initActiveVaultInstance('vault1')
+      await appDeps.masterVaultInit({
+        encryptionKey: 'key',
+        hashedPassword: 'pw'
+      })
+      await appDeps.initActiveVaultInstance({
+        id: 'vault1',
+        encryptionKey: 'key'
+      })
 
       const active = appDeps.getActiveVaultInstance()
       const removeAllListenersSpy = jest.spyOn(active, 'removeAllListeners')
@@ -538,19 +585,17 @@ describe('appDeps module functions (excluding encryption)', () => {
   })
 
   describe('closeAllInstances', () => {
-    beforeEach(() => {
-      jest.spyOn(appDeps, 'initInstance').mockResolvedValue(
-        appDeps.dummyInstance || {
-          ready: jest.fn().mockResolvedValue(),
-          close: jest.fn().mockResolvedValue()
-        }
-      )
-    })
     test('closeAllInstances closes all initialized instances and clears restart cache', async () => {
       await appDeps.setStoragePath('/home/testuser/vaultdata')
-      await appDeps.initActiveVaultInstance('vault1')
-      await appDeps.vaultsInit('vault1')
-      await appDeps.encryptionInit('vault1')
+      await appDeps.masterVaultInit({
+        encryptionKey: 'key',
+        hashedPassword: 'pw'
+      })
+      await appDeps.initActiveVaultInstance({
+        id: 'vault1',
+        encryptionKey: 'key'
+      })
+      await appDeps.encryptionInit()
 
       const activeVault = appDeps.getActiveVaultInstance()
       const vaults = appDeps.getVaultsInstance()
@@ -577,11 +622,20 @@ describe('appDeps module functions (excluding encryption)', () => {
   })
 
   describe('suspendAllInstances/resumeAllInstances', () => {
+    afterEach(async () => {
+      await appDeps.closeAllInstances()
+    })
+
     test('suspendAllInstances calls suspend on all instances', async () => {
       await appDeps.setStoragePath('/home/testuser/vaultdata')
-
-      await appDeps.initActiveVaultInstance('vault1')
-      await appDeps.vaultsInit('vaults')
+      await appDeps.masterVaultInit({
+        encryptionKey: 'key',
+        hashedPassword: 'pw'
+      })
+      await appDeps.initActiveVaultInstance({
+        id: 'vault1',
+        encryptionKey: 'key'
+      })
       await appDeps.encryptionInit()
 
       const activeVault = appDeps.getActiveVaultInstance()
@@ -597,9 +651,14 @@ describe('appDeps module functions (excluding encryption)', () => {
 
     test('resumeAllInstances calls resume on all instances', async () => {
       await appDeps.setStoragePath('/home/testuser/vaultdata')
-
-      await appDeps.initActiveVaultInstance('vault1')
-      await appDeps.vaultsInit('vaults')
+      await appDeps.masterVaultInit({
+        encryptionKey: 'key',
+        hashedPassword: 'pw'
+      })
+      await appDeps.initActiveVaultInstance({
+        id: 'vault1',
+        encryptionKey: 'key'
+      })
       await appDeps.encryptionInit()
 
       const activeVault = appDeps.getActiveVaultInstance()

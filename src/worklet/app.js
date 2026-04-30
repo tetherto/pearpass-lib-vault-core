@@ -16,7 +16,11 @@ const RECOVERABLE_SOCKET_ERRORS = new Set([
 
 Bare.on('uncaughtException', (err) => {
   if (RECOVERABLE_SOCKET_ERRORS.has(err.code)) {
-    workletLogger.warn('Suppressed recoverable socket error:', err.code, err.message)
+    workletLogger.warn(
+      'Suppressed recoverable socket error:',
+      err.code,
+      err.message
+    )
     return // swallow - do not crash
   }
 

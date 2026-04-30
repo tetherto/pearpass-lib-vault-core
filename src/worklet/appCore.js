@@ -1015,7 +1015,7 @@ export const setupIPC = () => {
   const ipc = isPearWorker()
     ? Pear.worker.pipe()
     : // New bare-sidecar exposes IPC on Bare.IPC.
-      // eslint-disable-next-line no-undef
+
       (typeof Bare !== 'undefined' && Bare?.IPC) ||
       // Older pear-sidecar builds exposed IPC via BareKit.IPC.
       (typeof BareKit !== 'undefined' && BareKit?.IPC) ||
@@ -1035,13 +1035,13 @@ export const setupIPC = () => {
 
   ipc.on('close', async () => {
     await destroySharedDHT()
-    // eslint-disable-next-line no-undef
+
     Bare.exit(0)
   })
 
   ipc.on('end', async () => {
     await destroySharedDHT()
-    // eslint-disable-next-line no-undef
+
     Bare.exit(0)
   })
 
@@ -1049,7 +1049,7 @@ export const setupIPC = () => {
   // bare-kit calls NativeBareKit.suspend() on AppState 'background',
   // which fires Bare 'suspend' inside the worklet before pausing the
   // event loop.
-  // eslint-disable-next-line no-undef
+
   if (typeof Bare !== 'undefined') {
     workletLogger.log('Bare lifecycle events detected')
 
@@ -1057,15 +1057,15 @@ export const setupIPC = () => {
 
     const sus = new Suspendify({
       wakeupLinger: 6_000,
-      async pollLinger () {
+      async pollLinger() {
         const remaining = Math.max(suspendDeadline - Date.now(), 0)
         workletLogger.log('Suspendify pollLinger remaining', remaining)
         return remaining
       },
-      async presuspend () {
+      async presuspend() {
         workletLogger.log('Suspendify presuspend starting')
       },
-      async suspend () {
+      async suspend() {
         try {
           workletLogger.log('Suspendify suspending instances')
           await suspendAllInstances()
@@ -1086,10 +1086,10 @@ export const setupIPC = () => {
           workletLogger.error('Caught suspension error:', error)
         }
       },
-      async suspendCancelled () {
+      async suspendCancelled() {
         workletLogger.log('Suspendify suspend cancelled')
       },
-      async resume () {
+      async resume() {
         try {
           workletLogger.log('Suspendify resuming instances')
           await resumeAllInstances()
@@ -1100,7 +1100,6 @@ export const setupIPC = () => {
       }
     })
 
-    // eslint-disable-next-line no-undef
     Bare.on('suspend', function (linger) {
       linger = Math.max(linger - 20_000, 0)
       suspendDeadline = Date.now() + linger
@@ -1108,13 +1107,13 @@ export const setupIPC = () => {
       workletLogger.log('Asking suspendify to suspend')
       void sus.suspend(linger)
     })
-    // eslint-disable-next-line no-undef
+
     Bare.on('resume', function () {
       suspendDeadline = 0
       workletLogger.log('Bare resume event detected')
       void sus.resume()
     })
-    // eslint-disable-next-line no-undef
+
     Bare.on('idle', function () {
       // eslint-disable-next-line no-console
       console.log('Bare has fully idled')

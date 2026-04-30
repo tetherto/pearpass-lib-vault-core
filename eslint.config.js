@@ -8,7 +8,8 @@ export default [
   {
     languageOptions: {
       globals: {
-        BareKit: 'readonly'
+        BareKit: 'readonly',
+        Bare: 'readonly'
       }
     },
     rules: {

@@ -119,8 +119,6 @@ export const getEncryptionInstance = () => encryptionInstance
  * @returns {Promise<void>}
  */
 export const suspendAllInstances = async () => {
-  const tasks = []
-
   if (activeVaultInstance) {
     workletLogger.log('Suspending active vault instance')
     await activeVaultInstance.suspend?.()
@@ -133,7 +131,6 @@ export const suspendAllInstances = async () => {
     workletLogger.log('Suspending encryption instance')
     await encryptionInstance.suspend?.()
   }
-
 }
 
 /**

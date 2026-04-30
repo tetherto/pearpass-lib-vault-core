@@ -16,6 +16,8 @@ jest.mock('sodium-native', () => ({
   crypto_secretbox_easy: jest.fn(),
   crypto_secretbox_open_easy: jest.fn(),
   sodium_malloc: jest.fn((size) => Buffer.alloc(size)),
+  sodium_memzero: jest.fn(),
+  sodium_free: jest.fn(),
   randombytes_buf: jest.fn((buffer) => {
     for (let i = 0; i < buffer.length; i++) {
       buffer[i] = i % 256

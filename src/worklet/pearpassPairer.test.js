@@ -26,6 +26,18 @@ jest.mock('@tetherto/swarmconf', () =>
   }))
 )
 
+// appDeps transitively imports bare-fs (uses `using` syntax Jest can't parse),
+// so we mock the only export pearpassPairer needs from it.
+jest.mock('./appDeps', () => ({
+  __esModule: true,
+  getHashedPassword: jest.fn().mockResolvedValue('hashed-password')
+}))
+
+// blind-encryption-sodium pulls in sodium-universal native bindings; mock it.
+jest.mock('blind-encryption-sodium', () =>
+  jest.fn().mockImplementation(() => ({}))
+)
+
 describe('PearPassPairer', () => {
   let pairer
   let mockStore
@@ -75,9 +87,14 @@ describe('PearPassPairer', () => {
       const result = await pairer.pairInstance(path, invite)
 
       expect(Corestore).toHaveBeenCalledWith(path)
-      expect(Autopass.pair).toHaveBeenCalledWith(mockStore, invite, {
-        relayThrough: []
-      })
+      expect(Autopass.pair).toHaveBeenCalledWith(
+        mockStore,
+        invite,
+        expect.objectContaining({
+          relayThrough: [],
+          blindEncryption: expect.anything()
+        })
+      )
       expect(mockPair.finished).toHaveBeenCalled()
       expect(mockInstance.ready).toHaveBeenCalled()
       expect(mockInstance.close).toHaveBeenCalled()

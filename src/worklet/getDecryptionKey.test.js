@@ -12,7 +12,9 @@ jest.mock('sodium-native', () => {
     crypto_pwhash_ALG_DEFAULT: 2,
     crypto_pwhash: jest.fn().mockImplementation((out) => {
       Buffer.from('mockDecryptionKeyResult'.padEnd(out.length, '0')).copy(out)
-    })
+    }),
+    sodium_memzero: jest.fn(),
+    sodium_free: jest.fn()
   }
   return mockSodium
 })
