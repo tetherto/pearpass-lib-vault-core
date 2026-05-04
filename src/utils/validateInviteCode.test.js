@@ -1,11 +1,11 @@
-import { logger } from './logger'
 import {
   isValidInviteCodeFormat,
   validateInviteCode
 } from './validateInviteCode.js'
+import { workletLogger } from '../worklet/utils/workletLogger.js'
 
-jest.mock('./logger.js', () => ({
-  logger: {
+jest.mock('../worklet/utils/workletLogger.js', () => ({
+  workletLogger: {
     error: jest.fn()
   }
 }))
@@ -71,13 +71,13 @@ describe('validateInviteCode', () => {
     const code =
       '196029f9-777b-428a-8f20-61130482b12d/yry4pdqoh6rp8qpi7rizmrrbik3f6789cxaj6o5xakauxadiy1dnd88dzmjzer576zrxomm78a7br665jsfdq1j3361th99d6retsobnra'
     expect(validateInviteCode(code)).toBe(code)
-    expect(logger.error).not.toHaveBeenCalled()
+    expect(workletLogger.error).not.toHaveBeenCalled()
   })
 
   it('logs and throws when the code is invalid', () => {
     expect(() => validateInviteCode('a'.repeat(50))).toThrow(
       'Invalid invite code'
     )
-    expect(logger.error).toHaveBeenCalled()
+    expect(workletLogger.error).toHaveBeenCalled()
   })
 })

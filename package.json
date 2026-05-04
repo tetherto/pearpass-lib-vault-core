@@ -18,10 +18,12 @@
     "bare-buffer": "^3.4.2",
     "bare-crypto": "^1.13.0",
     "bare-fetch": "^2.5.1",
-    "bare-fs": "^4.5.2",
+    "bare-file-logger": "^1.2.1",
+    "bare-fs": "^4.7.1",
     "bare-os": "^3.6.2",
     "bare-path": "^3.0.0",
     "bare-rpc": "^1.1.0",
+    "bare-system-logger": "^1.0.3",
     "blind-encryption-sodium": "^3.0.0",
     "buffer": "^6.0.3",
     "compact-encoding": "^2.18.0",
@@ -49,11 +51,19 @@
     "eslint-plugin-prettier": "5.2.1",
     "eslint-plugin-react": "7.37.4",
     "globals": "15.14.0",
-    "prettier": "3.4.2",
     "husky": "^9.1.7",
-    "jest": "30.2.0"
+    "jest": "30.2.0",
+    "prettier": "3.4.2"
   },
   "optionalDependencies": {
     "@tetherto/swarmconf": "^1.0.0"
+  },
+  "peerDependencies": {
+    "sentry-bare": "^0.2.0"
+  },
+  "peerDependenciesMeta": {
+    "sentry-bare": {
+      "optional": true
+    }
   }
 }
