@@ -1001,6 +1001,25 @@ export const handleRpcCommand = async (req) => {
 
       break
 
+    case API.SET_LOG_OPTIONS: {
+      const { logFile, logLevel, dev, sentryDsn } = requestData ?? {}
+      workletLogger.configure({
+        logFile,
+        logLevel,
+        dev: !!dev
+      })
+      if (sentryDsn) {
+        try {
+          const { initBareSentry } = await import('./utils/initBareSentry.js')
+          await initBareSentry(sentryDsn)
+        } catch {
+          // sentry-bare gateway failed (e.g. module not installed) — skip.
+        }
+      }
+      req.reply(JSON.stringify({ data: null }))
+      break
+    }
+
     default:
       req.reply(
         JSON.stringify({

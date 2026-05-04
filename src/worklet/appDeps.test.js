@@ -206,6 +206,18 @@ jest.mock('./getForbiddenRoots', () => ({
   getForbiddenRoots: jest.fn().mockReturnValue(['/etc', '/bin', '/tmp', '/var'])
 }))
 
+jest.mock('./utils/workletLogger', () => ({
+  workletLogger: {
+    log: jest.fn(),
+    debug: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    configure: jest.fn()
+  },
+  WorkletLogger: jest.fn()
+}))
+
 // Mock Bare global for platform detection
 global.Bare = {
   platform: 'posix' // Unix-like for tests

@@ -8,16 +8,23 @@ import { sendFileStream } from '../utils/sendFileStream.js'
 import { API, API_BY_VALUE } from '../worklet/api.js'
 
 export class PearpassVaultClient extends EventEmitter {
-  constructor(ipc, storagePath, { debugMode = false } = {}) {
+  /**
+   * @param {*} ipc - bare-rpc compatible IPC stream
+   * @param {string} storagePath - absolute path where vaults live
+   * @param {Object} [opts]
+   * @param {boolean} [opts.debugMode=false] - enable host-side console traces
+   * @param {{ log: Function, error: Function }} [opts.logger] - external
+   *   logger to receive host-side log calls. If omitted, falls back to
+   *   inline console-based behaviour gated on `debugMode`.
+   */
+  constructor(ipc, storagePath, { debugMode = false, logger } = {}) {
     super()
 
     this.debugMode = debugMode
 
-    this._logger = {
+    this._logger = logger ?? {
       log: (...args) => {
-        if (!this.debugMode) {
-          return
-        }
+        if (!this.debugMode) return
 
         // eslint-disable-next-line no-console
         console.log(...args)
@@ -106,6 +113,24 @@ export class PearpassVaultClient extends EventEmitter {
     return this._handleRequest({
       command: API.STORAGE_PATH_SET,
       data: { path }
+    })
+  }
+
+  /**
+   * Configures logging in the worklet. Sends SET_LOG_OPTIONS over RPC.
+   * Idempotent — safe to call multiple times.
+   *
+   * @param {Object} opts
+   * @param {string} [opts.logFile] - absolute filesystem path; omit to leave file sink unchanged
+   * @param {'debug'|'info'|'warn'|'error'} [opts.logLevel]
+   * @param {boolean} [opts.dev] - enables console mirror when logLevel is 'debug'
+   * @param {string|null} [opts.sentryDsn] - mobile/nightly only; omit on desktop
+   * @returns {Promise<void>}
+   */
+  async setLogOptions(opts) {
+    return this._handleRequest({
+      command: API.SET_LOG_OPTIONS,
+      data: opts
     })
   }
 
