@@ -8,7 +8,8 @@ jest.mock('bare-fs', () => ({
     writeFileSync: jest.fn(),
     renameSync: jest.fn(),
     promises: {
-      mkdir: jest.fn().mockResolvedValue(undefined)
+      mkdir: jest.fn().mockResolvedValue(undefined),
+      rm: jest.fn().mockResolvedValue(undefined)
     }
   }
 }))
@@ -370,6 +371,51 @@ describe('appDeps module functions (excluding encryption)', () => {
       expect(mockInstance.add).toHaveBeenCalledWith(
         'key2',
         JSON.stringify({ data: 'test' })
+      )
+    })
+
+    test('removeVault throws when vaultId is missing', async () => {
+      await expect(appDeps.removeVault()).rejects.toThrow(
+        'vaultId is required'
+      )
+    })
+
+    test('removeVault drops the master entry and wipes disk for an inactive vault', async () => {
+      const fs = require('bare-fs').default
+      fs.promises.rm.mockClear()
+
+      const mockInstance = appDeps.getVaultsInstance()
+      mockInstance.remove = jest.fn().mockResolvedValue()
+
+      await appDeps.removeVault('vault-x')
+
+      expect(mockInstance.remove).toHaveBeenCalledWith('vault/vault-x')
+      expect(fs.promises.rm).toHaveBeenCalledWith(
+        expect.stringContaining('vault/vault-x'),
+        { recursive: true, force: true }
+      )
+    })
+
+    test('removeVault closes the active instance first when it owns the vault', async () => {
+      const fs = require('bare-fs').default
+      fs.promises.rm.mockClear()
+
+      await appDeps.initActiveVaultInstance({
+        id: 'vault1',
+        encryptionKey: 'key'
+      })
+      expect(appDeps.getIsActiveVaultInitialized()).toBe(true)
+
+      const vaultsInstance = appDeps.getVaultsInstance()
+      vaultsInstance.remove = jest.fn().mockResolvedValue()
+
+      await appDeps.removeVault('vault1')
+
+      expect(appDeps.getIsActiveVaultInitialized()).toBe(false)
+      expect(vaultsInstance.remove).toHaveBeenCalledWith('vault/vault1')
+      expect(fs.promises.rm).toHaveBeenCalledWith(
+        expect.stringContaining('vault/vault1'),
+        { recursive: true, force: true }
       )
     })
 
