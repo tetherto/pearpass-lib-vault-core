@@ -584,6 +584,38 @@ export const vaultsAdd = async (key, data) => {
 }
 
 /**
+ * Removes a vault from this device: closes the active instance if it owns the
+ * vault, drops the master entry, and wipes the on-disk autobase directory.
+ * Atomic at the RPC boundary so a master-removed-but-disk-kept state cannot
+ * leak to callers.
+ *
+ * @param {string} vaultId
+ * @returns {Promise<void>}
+ */
+export const removeVault = async (vaultId) => {
+  if (!vaultId) {
+    throw new Error('vaultId is required')
+  }
+  if (!isVaultsInitialized) {
+    throw new Error('Vaults not initialised')
+  }
+
+  if (lastActiveVaultId === vaultId) {
+    if (isActiveVaultInitialized) {
+      // Close before wipe — Windows file locks would otherwise block rm.
+      await closeActiveVaultInstance({ clearRestartCache: true })
+    } else {
+      clearRestartCache()
+    }
+  }
+
+  await vaultsInstance.remove(`vault/${vaultId}`)
+
+  const fullPath = buildPath(`vault/${vaultId}`)
+  await fs.promises.rm(fullPath, { recursive: true, force: true })
+}
+
+/**
  * @param {string} key
  * @returns {Promise<Buffer|null>}
  */

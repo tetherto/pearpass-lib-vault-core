@@ -37,6 +37,7 @@ import {
   setStoragePath,
   vaultRemove,
   vaultsAdd,
+  removeVault,
   vaultsGet,
   masterVaultInit,
   vaultsList,
@@ -206,6 +207,21 @@ export const handleRpcCommand = async (req) => {
         req.reply(
           JSON.stringify({
             error: `Error adding vault: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case API.REMOVE_VAULT:
+      try {
+        await removeVault(requestData?.vaultId)
+
+        req.reply(JSON.stringify({ success: true }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error removing vault: ${error}`
           })
         )
       }
