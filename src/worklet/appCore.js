@@ -22,6 +22,7 @@ import {
   getIsActiveVaultInitialized,
   getIsEncryptionInitialized,
   getIsVaultsInitialized,
+  getVaultsInstance,
   initActiveVaultInstance,
   initListener,
   resumeAllInstances,
@@ -71,6 +72,19 @@ import { workletLogger } from './utils/workletLogger'
 import { validateInviteCode } from '../utils/validateInviteCode.js'
 
 let rpc = null
+
+// Notify the parent process whenever the master vault mutates so multi-process
+// callers (e.g. extension deletes a vault) stay in sync. Idempotent — each
+// init path calls this so the listener follows whichever path created the
+// vaultsInstance.
+const wireMasterUpdateListener = () => {
+  const inst = getVaultsInstance()
+  if (!inst) return
+  inst.removeAllListeners('update')
+  inst.on('update', () => {
+    rpc.request(API.ON_MASTER_UPDATE).send()
+  })
+}
 
 export const handleRpcCommand = async (req) => {
   const commandName = API_BY_VALUE[req.command]
@@ -151,6 +165,8 @@ export const handleRpcCommand = async (req) => {
           encryptionKey: requestData.encryptionKey,
           hashedPassword: requestData.hashedPassword
         })
+
+        wireMasterUpdateListener()
 
         req.reply(JSON.stringify({ success: true, res }))
       } catch (error) {
@@ -531,6 +547,8 @@ export const handleRpcCommand = async (req) => {
           passwordBase64: requestData.password
         })
 
+        wireMasterUpdateListener()
+
         req.reply(JSON.stringify({ data }))
       } catch (error) {
         req.reply(
@@ -547,6 +565,8 @@ export const handleRpcCommand = async (req) => {
         const data = await masterPasswordManager.initWithPassword({
           passwordBase64: requestData.password
         })
+
+        wireMasterUpdateListener()
 
         req.reply(JSON.stringify({ data }))
       } catch (error) {
@@ -584,6 +604,8 @@ export const handleRpcCommand = async (req) => {
           nonce: requestData.nonce,
           hashedPassword: requestData.hashedPassword
         })
+
+        wireMasterUpdateListener()
 
         req.reply(JSON.stringify({ data }))
       } catch (error) {

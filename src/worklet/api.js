@@ -59,7 +59,8 @@ export const API = {
   GENERATE_HOTP_NEXT: 57,
   ADD_OTP_TO_RECORD: 58,
   REMOVE_OTP_FROM_RECORD: 59,
-  REMOVE_VAULT: 60
+  REMOVE_VAULT: 60,
+  ON_MASTER_UPDATE: 61
 }
 
 export const API_BY_VALUE = Object.entries(API).reduce((acc, [key, value]) => {

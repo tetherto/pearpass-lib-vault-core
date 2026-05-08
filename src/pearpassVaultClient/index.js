@@ -35,6 +35,11 @@ export class PearpassVaultClient extends EventEmitter {
 
           break
 
+        case API.ON_MASTER_UPDATE:
+          this.emit('master-update')
+
+          break
+
         default:
           this._logger.error('Unknown command:', req.command)
       }
