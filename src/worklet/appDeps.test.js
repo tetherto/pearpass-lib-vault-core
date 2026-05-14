@@ -233,6 +233,8 @@ global.Bare = {
   platform: 'posix' // Unix-like for tests
 }
 
+import bareFs from 'bare-fs'
+
 import * as appDeps from './appDeps'
 
 describe('appDeps module functions (excluding encryption)', () => {
@@ -402,8 +404,7 @@ describe('appDeps module functions (excluding encryption)', () => {
     })
 
     test('removeVault drops the master entry and wipes disk for an inactive vault', async () => {
-      const fs = require('bare-fs').default
-      fs.promises.rm.mockClear()
+      bareFs.promises.rm.mockClear()
 
       const mockInstance = appDeps.getVaultsInstance()
       mockInstance.remove = jest.fn().mockResolvedValue()
@@ -411,15 +412,14 @@ describe('appDeps module functions (excluding encryption)', () => {
       await appDeps.removeVault('vault-x')
 
       expect(mockInstance.remove).toHaveBeenCalledWith('vault/vault-x')
-      expect(fs.promises.rm).toHaveBeenCalledWith(
+      expect(bareFs.promises.rm).toHaveBeenCalledWith(
         expect.stringContaining('vault/vault-x'),
         { recursive: true, force: true }
       )
     })
 
     test('removeVault closes the active instance first when it owns the vault', async () => {
-      const fs = require('bare-fs').default
-      fs.promises.rm.mockClear()
+      bareFs.promises.rm.mockClear()
 
       await appDeps.initActiveVaultInstance({
         id: 'vault1',
@@ -434,7 +434,7 @@ describe('appDeps module functions (excluding encryption)', () => {
 
       expect(appDeps.getIsActiveVaultInitialized()).toBe(false)
       expect(vaultsInstance.remove).toHaveBeenCalledWith('vault/vault1')
-      expect(fs.promises.rm).toHaveBeenCalledWith(
+      expect(bareFs.promises.rm).toHaveBeenCalledWith(
         expect.stringContaining('vault/vault1'),
         { recursive: true, force: true }
       )

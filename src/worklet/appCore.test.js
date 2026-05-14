@@ -82,7 +82,9 @@ jest.mock('./appDeps', () => ({
   restartActiveVault: (...args) => mockRestartActiveVault(...args),
   setStoragePath: (...args) => mockSetStoragePath(...args),
   suspendAllInstances: (...args) => mockSuspendAllInstances(...args),
-  resumeAllInstances: (...args) => mockResumeAllInstances(...args)
+  resumeAllInstances: (...args) => mockResumeAllInstances(...args),
+  getVaultsInstance: () => null,
+  removeVault: jest.fn()
 }))
 
 jest.mock('sodium-native', () => {
