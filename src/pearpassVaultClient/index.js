@@ -220,6 +220,28 @@ export class PearpassVaultClient extends EventEmitter {
   }
 
   /**
+   * @param {string} key
+   * @returns {Promise<void>}
+   */
+  async vaultsRemove(key) {
+    return this._handleRequest({
+      command: API.MASTER_VAULT_REMOVE,
+      data: { key }
+    })
+  }
+
+  /**
+   * @param {{ gte?: { key: string }, lt?: { key: string } }} options
+   * @returns {Promise<Array<{ key: string, value: any }>>}
+   */
+  async vaultsFind(options = {}) {
+    return this._handleRequest({
+      command: API.MASTER_VAULT_FIND,
+      data: options
+    })
+  }
+
+  /**
    * Removes a vault from this device: closes the active instance if owned,
    * drops the master entry, and wipes the autobase directory.
    * @param {string} vaultId - The id of the vault to remove.

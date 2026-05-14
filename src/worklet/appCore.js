@@ -40,6 +40,8 @@ import {
   setStoragePath,
   vaultRemove,
   vaultsAdd,
+  vaultsRemove,
+  vaultsFind,
   removeVault,
   vaultsGet,
   masterVaultInit,
@@ -390,6 +392,34 @@ export const handleRpcCommand = async (req) => {
         req.reply(
           JSON.stringify({
             error: `Error listing vaults: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case API.MASTER_VAULT_REMOVE:
+      try {
+        await vaultsRemove(requestData?.key)
+        req.reply(JSON.stringify({ data: true }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error removing from master vault: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case API.MASTER_VAULT_FIND:
+      try {
+        const found = await vaultsFind(requestData)
+        req.reply(JSON.stringify({ data: found }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error finding in master vault: ${error}`
           })
         )
       }

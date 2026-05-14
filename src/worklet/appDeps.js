@@ -584,6 +584,48 @@ export const vaultsAdd = async (key, data) => {
 }
 
 /**
+ * @param {string} key
+ * @returns {Promise<void>}
+ */
+export const vaultsRemove = async (key) => {
+  if (!isVaultsInitialized) {
+    throw new Error('Vaults not initialised')
+  }
+  if (!key) throw new Error('vaultsRemove: key is required')
+
+  await vaultsInstance.remove(key)
+}
+
+/**
+ * @param {{ gte?: { key: string }, lt?: { key: string } }} options
+ * @returns {Promise<Array<{ key: string, value: any }>>}
+ */
+export const vaultsFind = async (options = {}) => {
+  if (!isVaultsInitialized) {
+    throw new Error('Vaults not initialised')
+  }
+
+  const stream = await vaultsInstance.list()
+  const gteKey = options?.gte?.key
+  const ltKey = options?.lt?.key
+
+  return new Promise((resolve, reject) => {
+    const results = []
+    stream.on('data', ({ key, value }) => {
+      if (!value) return
+      if (gteKey && key < gteKey) return
+      if (ltKey && key >= ltKey) return
+      try {
+        const parsedValue = JSON.parse(value)
+        results.push({ key, value: parsedValue })
+      } catch {}
+    })
+    stream.on('end', () => resolve(results))
+    stream.on('error', (err) => reject(err))
+  })
+}
+
+/**
  * Removes a vault from this device: closes the active instance if it owns the
  * vault, drops the master entry, and wipes the on-disk autobase directory.
  * Atomic at the RPC boundary so a master-removed-but-disk-kept state cannot
