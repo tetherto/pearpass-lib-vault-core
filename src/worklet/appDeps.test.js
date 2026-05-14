@@ -398,9 +398,7 @@ describe('appDeps module functions (excluding encryption)', () => {
     })
 
     test('removeVault throws when vaultId is missing', async () => {
-      await expect(appDeps.removeVault()).rejects.toThrow(
-        'vaultId is required'
-      )
+      await expect(appDeps.removeVault()).rejects.toThrow('vaultId is required')
     })
 
     test('removeVault drops the master entry and wipes disk for an inactive vault', async () => {

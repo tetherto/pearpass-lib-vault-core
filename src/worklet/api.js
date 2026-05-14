@@ -62,8 +62,9 @@ export const API = {
   SET_LOG_OPTIONS: 60,
   ACTIVE_VAULT_FIND: 61,
   ACTIVE_VAULT_GET_WRITER_KEY: 62,
-  REMOVE_VAULT: 63,
-  ON_MASTER_UPDATE: 64
+  ENCRYPTION_DECRYPT_BITWARDEN_EXPORT: 63,
+  REMOVE_VAULT: 64,
+  ON_MASTER_UPDATE: 65
 }
 
 export const API_BY_VALUE = Object.entries(API).reduce((acc, [key, value]) => {
