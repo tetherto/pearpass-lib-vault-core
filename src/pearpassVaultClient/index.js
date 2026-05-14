@@ -814,6 +814,27 @@ export class PearpassVaultClient extends EventEmitter {
   }
 
   /**
+   * Decrypts a Bitwarden password-protected encrypted JSON export inside the
+   * Bare worklet (PBKDF2/Argon2id, HKDF, HMAC-SHA256 verify, AES-256-CBC).
+   *
+   * @param {Object} params
+   * @param {string} params.password
+   * @param {string} params.salt           - base64 string, used as raw UTF-8 (BW convention)
+   * @param {number} params.kdfType        - 0 = PBKDF2-SHA256, 1 = Argon2id
+   * @param {number} params.kdfIterations
+   * @param {number} [params.kdfMemory]
+   * @param {number} [params.kdfParallelism]
+   * @param {string} params.cipherString   - "2.iv|ct|mac"
+   * @returns {Promise<string>} Decrypted UTF-8 plaintext (the vault JSON)
+   */
+  async decryptBitwardenExport(params) {
+    return this._handleRequest({
+      command: API.ENCRYPTION_DECRYPT_BITWARDEN_EXPORT,
+      data: params
+    })
+  }
+
+  /**
    * Generates OTP codes for a list of record IDs.
    * @param {string[]} recordIds
    * @returns {Promise<Array<{ recordId: string, code: string, timeRemaining?: number }>>}

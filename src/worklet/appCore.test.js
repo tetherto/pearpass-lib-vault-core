@@ -43,6 +43,7 @@ const mockEncryptVaultKeyWithHashedPassword = jest.fn()
 const mockEncryptVaultWithKey = jest.fn()
 const mockGetDecryptionKey = jest.fn()
 const mockDecryptVaultKey = jest.fn()
+const mockDecryptBitwardenExport = jest.fn()
 
 // --- Module mocks ---
 jest.mock('./appDeps', () => ({
@@ -144,6 +145,10 @@ jest.mock('./decryptVaultKey', () => ({
   decryptVaultKey: (...args) => mockDecryptVaultKey(...args)
 }))
 
+jest.mock('./decryptBitwardenExport', () => ({
+  decryptBitwardenExport: (...args) => mockDecryptBitwardenExport(...args)
+}))
+
 jest.mock('./masterPasswordManager', () => ({
   masterPasswordManager: {
     createMasterPassword: jest.fn(() => ({ data: 'created' })),
@@ -231,7 +236,8 @@ jest.mock('./api', () => {
     BLIND_MIRRORS_REMOVE_ALL: 39,
     FETCH_FAVICON: 44,
     ACTIVE_VAULT_FIND: 61,
-    ACTIVE_VAULT_GET_WRITER_KEY: 62
+    ACTIVE_VAULT_GET_WRITER_KEY: 62,
+    ENCRYPTION_DECRYPT_BITWARDEN_EXPORT: 63
   }
 
   const API_BY_VALUE = Object.entries(API).reduce((acc, [key, value]) => {
@@ -1151,6 +1157,55 @@ describe('handleRpcCommand', () => {
 
     const payload = JSON.parse(reply.mock.calls[0][0])
     expect(payload).toEqual({ data: 'decrypted-key' })
+  })
+
+  test('ENCRYPTION_DECRYPT_BITWARDEN_EXPORT: routes payload and replies with data on success', async () => {
+    const payloadData = {
+      password: 'pw',
+      salt: 'jane@example.com',
+      kdfType: 0,
+      kdfIterations: 100000,
+      cipherString: '2.iv|ct|mac'
+    }
+    parseRequestData.mockReturnValue(payloadData)
+    mockDecryptBitwardenExport.mockReturnValue('{"items":[]}')
+
+    const reply = jest.fn()
+    const req = {
+      command: API.ENCRYPTION_DECRYPT_BITWARDEN_EXPORT,
+      data: payloadData,
+      reply
+    }
+
+    await handleRpcCommand(req)
+
+    expect(mockDecryptBitwardenExport).toHaveBeenCalledWith(payloadData)
+    expect(reply).toHaveBeenCalledTimes(1)
+
+    const payload = JSON.parse(reply.mock.calls[0][0])
+    expect(payload).toEqual({ data: '{"items":[]}' })
+  })
+
+  test('ENCRYPTION_DECRYPT_BITWARDEN_EXPORT: replies with error when decryption throws', async () => {
+    parseRequestData.mockReturnValue({ password: 'wrong' })
+    mockDecryptBitwardenExport.mockImplementation(() => {
+      throw new Error('Incorrect password')
+    })
+
+    const reply = jest.fn()
+    const req = {
+      command: API.ENCRYPTION_DECRYPT_BITWARDEN_EXPORT,
+      data: { password: 'wrong' },
+      reply
+    }
+
+    await handleRpcCommand(req)
+
+    expect(reply).toHaveBeenCalledTimes(1)
+
+    const payload = JSON.parse(reply.mock.calls[0][0])
+    expect(payload.error).toContain('Error decrypting Bitwarden export')
+    expect(payload.error).toContain('Incorrect password')
   })
 
   test('ENCRYPTION_CLOSE: success path', async () => {

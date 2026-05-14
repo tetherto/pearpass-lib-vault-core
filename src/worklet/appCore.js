@@ -54,6 +54,7 @@ import {
   addOtpToRecord,
   removeOtpFromRecord
 } from './appDeps'
+import { decryptBitwardenExport } from './decryptBitwardenExport'
 import { decryptVaultKey } from './decryptVaultKey'
 import { encryptVaultKeyWithHashedPassword } from './encryptVaultKeyWithHashedPassword'
 import { encryptVaultWithKey } from './encryptVaultWithKey'
@@ -811,6 +812,21 @@ export const handleRpcCommand = async (req) => {
         req.reply(
           JSON.stringify({
             error: `Error decrypting export data: ${error.message || error}`
+          })
+        )
+      }
+
+      break
+
+    case API.ENCRYPTION_DECRYPT_BITWARDEN_EXPORT:
+      try {
+        const decryptedData = decryptBitwardenExport(requestData)
+
+        req.reply(JSON.stringify({ data: decryptedData }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error decrypting Bitwarden export: ${error.message || error}`
           })
         )
       }
