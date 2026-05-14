@@ -1,5 +1,6 @@
 import EventEmitter from 'events'
 
+import b4a from 'b4a'
 import RPC from 'bare-rpc'
 import FramedStream from 'framed-stream'
 
@@ -44,6 +45,26 @@ export class PearpassVaultClient extends EventEmitter {
 
         case API.ON_MASTER_UPDATE:
           this.emit('master-update')
+
+          break
+
+        case API.ON_PERSONAL_SWARM_ENVELOPE:
+          try {
+            const raw = req.data
+            const text =
+              typeof raw === 'string'
+                ? raw
+                : raw
+                  ? b4a.toString(raw, 'utf8')
+                  : '{}'
+            const parsed = JSON.parse(text)
+            this.emit('personal-swarm-envelope', parsed)
+          } catch (err) {
+            this._logger.error(
+              'Failed to parse personal-swarm-envelope payload',
+              err
+            )
+          }
 
           break
 
@@ -429,6 +450,39 @@ export class PearpassVaultClient extends EventEmitter {
   async activeVaultGetWriterKey() {
     return this._handleRequest({
       command: API.ACTIVE_VAULT_GET_WRITER_KEY
+    })
+  }
+
+  /** @returns {Promise<{ topic: string }>} */
+  async personalSwarmInit() {
+    return this._handleRequest({
+      command: API.PERSONAL_SWARM_INIT
+    })
+  }
+
+  /** @returns {Promise<void>} */
+  async personalSwarmClose() {
+    return this._handleRequest({
+      command: API.PERSONAL_SWARM_CLOSE
+    })
+  }
+
+  /** @returns {Promise<string | null>} */
+  async personalSwarmGetTopic() {
+    return this._handleRequest({
+      command: API.PERSONAL_SWARM_GET_TOPIC
+    })
+  }
+
+  /**
+   * @param {string} targetTopic hex
+   * @param {string} envelope hex
+   * @returns {Promise<{ ok: boolean, reason?: string }>}
+   */
+  async personalSwarmSend(targetTopic, envelope) {
+    return this._handleRequest({
+      command: API.PERSONAL_SWARM_SEND,
+      data: { targetTopic, envelope }
     })
   }
 

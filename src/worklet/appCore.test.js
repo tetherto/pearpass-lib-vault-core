@@ -102,6 +102,15 @@ jest.mock('sodium-native', () => {
   }
 })
 
+jest.mock('./personalSwarm', () => ({
+  personalSwarmInit: jest.fn(),
+  personalSwarmClose: jest.fn(),
+  personalSwarmGetTopic: jest.fn(),
+  personalSwarmSend: jest.fn(),
+  personalSwarmOnEnvelope: jest.fn(),
+  isPersonalSwarmRunning: jest.fn(() => false)
+}))
+
 jest.mock('./utils/parseRequestData', () => ({
   parseRequestData: jest.fn((data) => data) // default: passthrough
 }))

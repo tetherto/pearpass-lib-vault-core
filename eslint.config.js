@@ -2,7 +2,7 @@ import { eslintConfig } from '@tetherto/tether-dev-docs'
 
 export default [
   {
-    ignores: ['dist', 'src/worklet/app.cjs']
+    ignores: ['dist', 'src/worklet/app.cjs', 'poc']
   },
   ...eslintConfig,
   {

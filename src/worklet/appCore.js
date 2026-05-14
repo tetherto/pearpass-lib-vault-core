@@ -64,6 +64,13 @@ import { faviconManager } from './faviconManager'
 import { getDecryptionKey } from './getDecryptionKey'
 import { hashPassword } from './hashPassword'
 import { masterPasswordManager } from './masterPasswordManager'
+import {
+  personalSwarmInit,
+  personalSwarmClose,
+  personalSwarmGetTopic,
+  personalSwarmSend,
+  personalSwarmOnEnvelope
+} from './personalSwarm'
 import { withMirrorValidation } from '../middleware/validateMirrorKeyViaDHT.js'
 import { destroySharedDHT } from './utils/dht'
 import { receiveFileStream } from '../utils/recieveFileStream.js'
@@ -85,6 +92,14 @@ const wireMasterUpdateListener = () => {
   inst.removeAllListeners('update')
   inst.on('update', () => {
     rpc.request(API.ON_MASTER_UPDATE).send()
+  })
+}
+
+const wirePersonalSwarmEnvelopeListener = () => {
+  personalSwarmOnEnvelope((envelope, peerInfo) => {
+    if (!rpc) return
+    const req = rpc.request(API.ON_PERSONAL_SWARM_ENVELOPE)
+    req.send(JSON.stringify({ envelope, peerInfo }))
   })
 }
 
@@ -240,6 +255,65 @@ export const handleRpcCommand = async (req) => {
         req.reply(
           JSON.stringify({
             error: `Error removing vault: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case API.PERSONAL_SWARM_INIT:
+      try {
+        const result = await personalSwarmInit()
+        req.reply(JSON.stringify({ data: result }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error starting personal swarm: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case API.PERSONAL_SWARM_CLOSE:
+      try {
+        await personalSwarmClose()
+        req.reply(JSON.stringify({ data: true }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error closing personal swarm: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case API.PERSONAL_SWARM_GET_TOPIC:
+      try {
+        const topic = personalSwarmGetTopic()
+        req.reply(JSON.stringify({ data: topic }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error reading personal swarm topic: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case API.PERSONAL_SWARM_SEND:
+      try {
+        const sendResult = await personalSwarmSend(
+          requestData?.targetTopic,
+          requestData?.envelope
+        )
+        req.reply(JSON.stringify({ data: sendResult }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `send-threw: ${error?.message ?? error}`
           })
         )
       }
@@ -1224,5 +1298,6 @@ export const createRPC = (ipc) => {
       )
     }
   })
+  wirePersonalSwarmEnvelopeListener()
   return rpc
 }
