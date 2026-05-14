@@ -41,6 +41,8 @@ jest.mock('../worklet/api', () => ({
     ACTIVE_VAULT_ADD: 'ACTIVE_VAULT_ADD',
     ACTIVE_VAULT_REMOVE: 'ACTIVE_VAULT_REMOVE',
     ACTIVE_VAULT_LIST: 'ACTIVE_VAULT_LIST',
+    ACTIVE_VAULT_FIND: 'ACTIVE_VAULT_FIND',
+    ACTIVE_VAULT_GET_WRITER_KEY: 'ACTIVE_VAULT_GET_WRITER_KEY',
     ACTIVE_VAULT_GET: 'ACTIVE_VAULT_GET',
     ACTIVE_VAULT_CREATE_INVITE: 'ACTIVE_VAULT_CREATE_INVITE',
     ACTIVE_VAULT_DELETE_INVITE: 'ACTIVE_VAULT_DELETE_INVITE',
@@ -69,7 +71,8 @@ jest.mock('../worklet/api', () => ({
     CLOSE_ALL_INSTANCES: 'CLOSE_ALL_INSTANCES',
     ACTIVE_VAULT_FILE_ADD: 'ACTIVE_VAULT_FILE_ADD',
     ACTIVE_VAULT_FILE_GET: 'ACTIVE_VAULT_FILE_GET',
-    ACTIVE_VAULT_FILE_REMOVE: 'ACTIVE_VAULT_FILE_REMOVE'
+    ACTIVE_VAULT_FILE_REMOVE: 'ACTIVE_VAULT_FILE_REMOVE',
+    SET_LOG_OPTIONS: 'SET_LOG_OPTIONS'
   },
   API_BY_VALUE: {
     ON_UPDATE: 'ON_UPDATE',
@@ -87,6 +90,8 @@ jest.mock('../worklet/api', () => ({
     ACTIVE_VAULT_ADD: 'ACTIVE_VAULT_ADD',
     ACTIVE_VAULT_REMOVE: 'ACTIVE_VAULT_REMOVE',
     ACTIVE_VAULT_LIST: 'ACTIVE_VAULT_LIST',
+    ACTIVE_VAULT_FIND: 'ACTIVE_VAULT_FIND',
+    ACTIVE_VAULT_GET_WRITER_KEY: 'ACTIVE_VAULT_GET_WRITER_KEY',
     ACTIVE_VAULT_GET: 'ACTIVE_VAULT_GET',
     ACTIVE_VAULT_CREATE_INVITE: 'ACTIVE_VAULT_CREATE_INVITE',
     ACTIVE_VAULT_DELETE_INVITE: 'ACTIVE_VAULT_DELETE_INVITE',
@@ -116,7 +121,8 @@ jest.mock('../worklet/api', () => ({
     CLOSE_ALL_INSTANCES: 'CLOSE_ALL_INSTANCES',
     ACTIVE_VAULT_FILE_ADD: 'ACTIVE_VAULT_FILE_ADD',
     ACTIVE_VAULT_FILE_GET: 'ACTIVE_VAULT_FILE_GET',
-    ACTIVE_VAULT_FILE_REMOVE: 'ACTIVE_VAULT_FILE_REMOVE'
+    ACTIVE_VAULT_FILE_REMOVE: 'ACTIVE_VAULT_FILE_REMOVE',
+    SET_LOG_OPTIONS: 'SET_LOG_OPTIONS'
   }
 }))
 
@@ -175,6 +181,10 @@ describe('PearpassVaultClient', () => {
     await expect(client.activeVaultAdd('key', {})).resolves.toBe('mockData')
     await expect(client.activeVaultRemove('key')).resolves.toBe('mockData')
     await expect(client.activeVaultList('filter')).resolves.toBe('mockData')
+    await expect(
+      client.activeVaultFind({ gte: { key: 'a' }, lt: { key: 'b' } })
+    ).resolves.toBe('mockData')
+    await expect(client.activeVaultGetWriterKey()).resolves.toBe('mockData')
     await expect(client.activeVaultGet('key')).resolves.toBe('mockData')
     await expect(client.activeVaultCreateInvite()).resolves.toBe('mockData')
     await expect(client.activeVaultDeleteInvite()).resolves.toBe('mockData')
@@ -316,5 +326,38 @@ describe('PearpassVaultClient', () => {
     })
     client.emit('update')
     expect(updateSpy).toHaveBeenCalled()
+  })
+
+  it('uses injected logger when provided', () => {
+    const fakeLogger = { log: jest.fn(), error: jest.fn() }
+    const c = new PearpassVaultClient(ipcMock, '/mock/path', {
+      logger: fakeLogger
+    })
+    c._logger.log('hello')
+    expect(fakeLogger.log).toHaveBeenCalledWith('hello')
+  })
+
+  it('falls back to inline console logger when none provided', () => {
+    const c = new PearpassVaultClient(ipcMock, '/mock/path', {
+      debugMode: true
+    })
+    expect(typeof c._logger.log).toBe('function')
+    expect(typeof c._logger.error).toBe('function')
+  })
+
+  it('setLogOptions sends RPC with SET_LOG_OPTIONS command', async () => {
+    const handleSpy = jest
+      .spyOn(client, '_handleRequest')
+      .mockResolvedValue(null)
+    await client.setLogOptions({
+      logFile: '/var/log/x.log',
+      logLevel: 'info',
+      dev: false
+    })
+    expect(handleSpy).toHaveBeenCalledWith({
+      command: API.SET_LOG_OPTIONS,
+      data: expect.objectContaining({ logFile: '/var/log/x.log' })
+    })
+    handleSpy.mockRestore()
   })
 })

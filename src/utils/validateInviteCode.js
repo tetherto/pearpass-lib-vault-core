@@ -1,4 +1,4 @@
-import { logger } from './logger'
+import { workletLogger } from '../worklet/utils/workletLogger.js'
 
 const INVITE_CODE_REGEX = /^[a-zA-Z0-9-]+\/[a-zA-Z0-9-]+$/
 const INVITE_CODE_MIN_LENGTH = 100
@@ -14,6 +14,6 @@ export const validateInviteCode = (code) => {
   }
 
   const errors = { code: 'Invalid invite code format' }
-  logger.error(`Invalid invite code: ${JSON.stringify(errors, null, 2)}`)
+  workletLogger.error(`Invalid invite code: ${JSON.stringify(errors, null, 2)}`)
   throw new Error(`Invalid invite code: ${JSON.stringify(errors, null, 2)}`)
 }

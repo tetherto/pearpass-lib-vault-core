@@ -99,8 +99,17 @@ jest.mock('autopass', () => {
     },
     base: {
       update: jest.fn().mockResolvedValue(),
-      view: { flush: jest.fn().mockResolvedValue() }
+      view: {
+        flush: jest.fn().mockResolvedValue(),
+        find: jest.fn().mockReturnValue({
+          async *[Symbol.asyncIterator]() {}
+        })
+      }
     },
+    writerKey: Buffer.from(
+      'aabbccddeeff0011223344556677889900aabbccddeeff00112233445566778899',
+      'hex'
+    ),
     getMirror: jest.fn().mockResolvedValue([]),
     addMirror: jest.fn().mockResolvedValue(),
     removeMirror: jest.fn().mockResolvedValue()
@@ -205,6 +214,18 @@ jest.mock('./validateAndSanitizePath', () => ({
 
 jest.mock('./getForbiddenRoots', () => ({
   getForbiddenRoots: jest.fn().mockReturnValue(['/etc', '/bin', '/tmp', '/var'])
+}))
+
+jest.mock('./utils/workletLogger', () => ({
+  workletLogger: {
+    log: jest.fn(),
+    debug: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    configure: jest.fn()
+  },
+  WorkletLogger: jest.fn()
 }))
 
 // Mock Bare global for platform detection
@@ -480,6 +501,129 @@ describe('appDeps module functions (excluding encryption)', () => {
       })
       const result = await appDeps.activeVaultList('test')
       expect(result).toEqual([1, 3])
+    })
+  })
+
+  describe('activeVaultGetWriterKey', () => {
+    afterEach(async () => {
+      await appDeps.closeAllInstances()
+    })
+
+    test('throws if vault not initialised', () => {
+      expect(() => appDeps.activeVaultGetWriterKey()).toThrow(
+        'Vault not initialised'
+      )
+    })
+
+    test('returns the writer key as a hex string', async () => {
+      await appDeps.setStoragePath('/home/testuser/vaultdata')
+      await appDeps.masterVaultInit({
+        encryptionKey: 'key',
+        hashedPassword: 'pw'
+      })
+      await appDeps.initActiveVaultInstance({
+        id: 'vault1',
+        encryptionKey: 'key'
+      })
+
+      const result = appDeps.activeVaultGetWriterKey()
+
+      expect(typeof result).toBe('string')
+      expect(result).toMatch(/^[0-9a-f]+$/)
+    })
+  })
+
+  describe('activeVaultFind', () => {
+    const initVault = async () => {
+      await appDeps.setStoragePath('/home/testuser/vaultdata')
+      await appDeps.masterVaultInit({
+        encryptionKey: 'key',
+        hashedPassword: 'pw'
+      })
+      await appDeps.initActiveVaultInstance({
+        id: 'vault1',
+        encryptionKey: 'key'
+      })
+    }
+
+    afterEach(async () => {
+      await appDeps.closeAllInstances()
+    })
+
+    test('throws if vault not initialised', async () => {
+      await expect(
+        appDeps.activeVaultFind({ gte: { key: 'a' }, lt: { key: 'b' } })
+      ).rejects.toThrow('Vault not initialised')
+    })
+
+    test('forwards range bounds to view.find and returns parsed { key, value } pairs', async () => {
+      await initVault()
+      const instance = appDeps.getActiveVaultInstance()
+
+      instance.base.view.find.mockReturnValue({
+        async *[Symbol.asyncIterator]() {
+          yield {
+            key: 'actions/queue/AAA/1',
+            value: JSON.stringify({ type: 'x' })
+          }
+          yield {
+            key: 'actions/queue/AAA/2',
+            value: JSON.stringify({ type: 'y' })
+          }
+        }
+      })
+
+      const result = await appDeps.activeVaultFind({
+        gte: { key: 'actions/queue/AAA/' },
+        lt: { key: 'actions/queue/AAA0' },
+        limit: 50,
+        reverse: false
+      })
+
+      expect(instance.base.view.find).toHaveBeenCalledWith(
+        '@autopass/records',
+        {
+          gte: { key: 'actions/queue/AAA/' },
+          lte: undefined,
+          gt: undefined,
+          lt: { key: 'actions/queue/AAA0' },
+          limit: 50,
+          reverse: false
+        }
+      )
+      expect(result).toEqual([
+        { key: 'actions/queue/AAA/1', value: { type: 'x' } },
+        { key: 'actions/queue/AAA/2', value: { type: 'y' } }
+      ])
+    })
+
+    test('skips entries with empty value', async () => {
+      await initVault()
+      const instance = appDeps.getActiveVaultInstance()
+
+      instance.base.view.find.mockReturnValue({
+        async *[Symbol.asyncIterator]() {
+          yield { key: 'a', value: JSON.stringify({ ok: true }) }
+          yield { key: 'b', value: null }
+          yield { key: 'c', value: undefined }
+        }
+      })
+
+      const result = await appDeps.activeVaultFind({
+        gte: { key: 'a' },
+        lt: { key: 'z' }
+      })
+
+      expect(result).toEqual([{ key: 'a', value: { ok: true } }])
+    })
+
+    test('returns empty array when no records match', async () => {
+      await initVault()
+      const result = await appDeps.activeVaultFind({
+        gte: { key: 'nope/' },
+        lt: { key: 'nope0' }
+      })
+      expect(result).toEqual([])
     })
   })
 

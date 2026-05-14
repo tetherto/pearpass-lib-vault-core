@@ -687,6 +687,70 @@ export const activeVaultList = async (filterKey) => {
 }
 
 /**
+ * @returns {string}
+ */
+export const activeVaultGetWriterKey = () => {
+  if (!isActiveVaultInitialized) {
+    throw new Error('Vault not initialised')
+  }
+  return b4a.toString(activeVaultInstance.writerKey, 'hex')
+}
+
+/**
+ * @param {{
+ *   gte?: { key: string },
+ *   lte?: { key: string },
+ *   gt?:  { key: string },
+ *   lt?:  { key: string },
+ *   limit?: number,
+ *   reverse?: boolean
+ * }} options
+ * @returns {Promise<Array<{ key: string, value: any }>>}
+ */
+export const activeVaultFind = async ({
+  gte,
+  lte,
+  gt,
+  lt,
+  limit = 1000,
+  reverse
+} = {}) => {
+  if (!isActiveVaultInitialized) {
+    throw new Error('Vault not initialised')
+  }
+
+  const stream = activeVaultInstance.base.view.find('@autopass/records', {
+    gte,
+    lte,
+    gt,
+    lt,
+    limit,
+    reverse
+  })
+
+  const results = []
+  for await (const record of stream) {
+    if (!record?.value) continue
+    let value
+    try {
+      value = JSON.parse(record.value)
+    } catch (err) {
+      workletLogger.error('activeVaultFind: failed to parse record', {
+        key: record.key,
+        err
+      })
+      continue
+    }
+    if (record.key?.startsWith('record/')) {
+      results.push({ key: record.key, value: enrichRecordForClient(value) })
+    } else {
+      results.push({ key: record.key, value })
+    }
+  }
+  return results
+}
+
+/**
  * @param {string} key
  * @returns {Promise<void>}
  */

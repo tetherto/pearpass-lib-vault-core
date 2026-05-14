@@ -8,16 +8,23 @@ import { sendFileStream } from '../utils/sendFileStream.js'
 import { API, API_BY_VALUE } from '../worklet/api.js'
 
 export class PearpassVaultClient extends EventEmitter {
-  constructor(ipc, storagePath, { debugMode = false } = {}) {
+  /**
+   * @param {*} ipc - bare-rpc compatible IPC stream
+   * @param {string} storagePath - absolute path where vaults live
+   * @param {Object} [opts]
+   * @param {boolean} [opts.debugMode=false] - enable host-side console traces
+   * @param {{ log: Function, error: Function }} [opts.logger] - external
+   *   logger to receive host-side log calls. If omitted, falls back to
+   *   inline console-based behaviour gated on `debugMode`.
+   */
+  constructor(ipc, storagePath, { debugMode = false, logger } = {}) {
     super()
 
     this.debugMode = debugMode
 
-    this._logger = {
+    this._logger = logger ?? {
       log: (...args) => {
-        if (!this.debugMode) {
-          return
-        }
+        if (!this.debugMode) return
 
         // eslint-disable-next-line no-console
         console.log(...args)
@@ -111,6 +118,24 @@ export class PearpassVaultClient extends EventEmitter {
     return this._handleRequest({
       command: API.STORAGE_PATH_SET,
       data: { path }
+    })
+  }
+
+  /**
+   * Configures logging in the worklet. Sends SET_LOG_OPTIONS over RPC.
+   * Idempotent — safe to call multiple times.
+   *
+   * @param {Object} opts
+   * @param {string} [opts.logFile] - absolute filesystem path; omit to leave file sink unchanged
+   * @param {'debug'|'info'|'warn'|'error'} [opts.logLevel]
+   * @param {boolean} [opts.dev] - enables console mirror when logLevel is 'debug'
+   * @param {string|null} [opts.sentryDsn] - mobile/nightly only; omit on desktop
+   * @returns {Promise<void>}
+   */
+  async setLogOptions(opts) {
+    return this._handleRequest({
+      command: API.SET_LOG_OPTIONS,
+      data: opts
     })
   }
 
@@ -375,6 +400,35 @@ export class PearpassVaultClient extends EventEmitter {
     return this._handleRequest({
       command: API.ACTIVE_VAULT_LIST,
       data: { filterKey }
+    })
+  }
+
+  /**
+   * Range-scans records in the active vault by key.
+   * @param {{
+   *   gte?: { key: string },
+   *   lte?: { key: string },
+   *   gt?:  { key: string },
+   *   lt?:  { key: string },
+   *   limit?: number,
+   *   reverse?: boolean
+   * }} options
+   * @returns {Promise<Array<{ key: string, value: any }>>}
+   */
+  async activeVaultFind(options = {}) {
+    return this._handleRequest({
+      command: API.ACTIVE_VAULT_FIND,
+      data: options
+    })
+  }
+
+  /**
+   * Returns the active vault's autobase writer key.
+   * @returns {Promise<string>}
+   */
+  async activeVaultGetWriterKey() {
+    return this._handleRequest({
+      command: API.ACTIVE_VAULT_GET_WRITER_KEY
     })
   }
 

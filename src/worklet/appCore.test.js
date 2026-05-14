@@ -15,6 +15,8 @@ const mockGetIsActiveVaultInitialized = jest.fn()
 const mockCloseActiveVaultInstance = jest.fn()
 const mockVaultRemove = jest.fn()
 const mockActiveVaultList = jest.fn()
+const mockActiveVaultFind = jest.fn()
+const mockActiveVaultGetWriterKey = jest.fn()
 const mockActiveVaultGet = jest.fn()
 const mockCreateInvite = jest.fn()
 const mockDeleteInvite = jest.fn()
@@ -58,6 +60,8 @@ jest.mock('./appDeps', () => ({
   closeActiveVaultInstance: (...args) => mockCloseActiveVaultInstance(...args),
   vaultRemove: (...args) => mockVaultRemove(...args),
   activeVaultList: (...args) => mockActiveVaultList(...args),
+  activeVaultFind: (...args) => mockActiveVaultFind(...args),
+  activeVaultGetWriterKey: (...args) => mockActiveVaultGetWriterKey(...args),
   activeVaultGet: (...args) => mockActiveVaultGet(...args),
   createInvite: (...args) => mockCreateInvite(...args),
   deleteInvite: (...args) => mockDeleteInvite(...args),
@@ -103,7 +107,11 @@ jest.mock('./utils/parseRequestData', () => ({
 jest.mock('./utils/workletLogger', () => ({
   workletLogger: {
     log: jest.fn(),
-    error: jest.fn()
+    debug: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    configure: jest.fn()
   }
 }))
 
@@ -221,7 +229,9 @@ jest.mock('./api', () => {
     BLIND_MIRROR_REMOVE: 37,
     BLIND_MIRRORS_ADD_DEFAULTS: 38,
     BLIND_MIRRORS_REMOVE_ALL: 39,
-    FETCH_FAVICON: 44
+    FETCH_FAVICON: 44,
+    ACTIVE_VAULT_FIND: 61,
+    ACTIVE_VAULT_GET_WRITER_KEY: 62
   }
 
   const API_BY_VALUE = Object.entries(API).reduce((acc, [key, value]) => {
@@ -719,6 +729,87 @@ describe('handleRpcCommand', () => {
 
     const payload = JSON.parse(reply.mock.calls[0][0])
     expect(payload).toEqual({ data: [{ id: '1', name: 'Record 1' }] })
+  })
+
+  test('ACTIVE_VAULT_FIND: success path', async () => {
+    const findOptions = {
+      gte: { key: 'actions/queue/AAA/' },
+      lt: { key: 'actions/queue/AAA0' }
+    }
+    parseRequestData.mockReturnValue(findOptions)
+    mockActiveVaultFind.mockResolvedValue([
+      { key: 'actions/queue/AAA/1', value: { type: 'x' } }
+    ])
+
+    const reply = jest.fn()
+    const req = {
+      command: API.ACTIVE_VAULT_FIND,
+      data: findOptions,
+      reply
+    }
+
+    await handleRpcCommand(req)
+
+    expect(mockActiveVaultFind).toHaveBeenCalledWith(findOptions)
+    expect(reply).toHaveBeenCalledTimes(1)
+
+    const payload = JSON.parse(reply.mock.calls[0][0])
+    expect(payload).toEqual({
+      data: [{ key: 'actions/queue/AAA/1', value: { type: 'x' } }]
+    })
+  })
+
+  test('ACTIVE_VAULT_GET_WRITER_KEY: success path', async () => {
+    mockActiveVaultGetWriterKey.mockReturnValue('aabbcc')
+
+    const reply = jest.fn()
+    const req = {
+      command: API.ACTIVE_VAULT_GET_WRITER_KEY,
+      data: null,
+      reply
+    }
+
+    await handleRpcCommand(req)
+
+    expect(mockActiveVaultGetWriterKey).toHaveBeenCalled()
+    const payload = JSON.parse(reply.mock.calls[0][0])
+    expect(payload).toEqual({ data: 'aabbcc' })
+  })
+
+  test('ACTIVE_VAULT_GET_WRITER_KEY: error path', async () => {
+    mockActiveVaultGetWriterKey.mockImplementation(() => {
+      throw new Error('boom')
+    })
+
+    const reply = jest.fn()
+    const req = {
+      command: API.ACTIVE_VAULT_GET_WRITER_KEY,
+      data: null,
+      reply
+    }
+
+    await handleRpcCommand(req)
+
+    const payload = JSON.parse(reply.mock.calls[0][0])
+    expect(payload.error).toMatch(/Error getting writer key/)
+  })
+
+  test('ACTIVE_VAULT_FIND: error path', async () => {
+    parseRequestData.mockReturnValue({ gte: { key: 'a' }, lt: { key: 'b' } })
+    mockActiveVaultFind.mockRejectedValue(new Error('boom'))
+
+    const reply = jest.fn()
+    const req = {
+      command: API.ACTIVE_VAULT_FIND,
+      data: { gte: { key: 'a' }, lt: { key: 'b' } },
+      reply
+    }
+
+    await handleRpcCommand(req)
+
+    expect(reply).toHaveBeenCalledTimes(1)
+    const payload = JSON.parse(reply.mock.calls[0][0])
+    expect(payload.error).toMatch(/Error finding records in active vault/)
   })
 
   test('ACTIVE_VAULT_GET: success path', async () => {
