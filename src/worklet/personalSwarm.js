@@ -12,7 +12,6 @@ const SEND_LOOKUP_TIMEOUT_MS = 30_000
 let swarm = null
 let topicBuffer = null
 let envelopeListener = null
-const pendingSends = new Map()
 
 export const isPersonalSwarmRunning = () => swarm !== null
 
@@ -40,17 +39,15 @@ export const personalSwarmInit = async () => {
     relayThrough: conf?.current?.blindRelays ?? null
   })
 
-  swarm.on('connection', (connection, peerInfo) => {
-    if (matchPendingSend(connection, peerInfo)) return
+  swarm.on('connection', (connection) => {
     handleIncomingConnection(connection).catch((err) => {
       workletLogger.error('personalSwarm: connection handler failed', { err })
     })
   })
 
-  await swarm.join(topicBuffer, { server: true, client: false }).flushed()
-  workletLogger.debug('personalSwarm: listening', {
-    topic: b4a.toString(topicBuffer, 'hex')
-  })
+  // Symmetric join so the announcer keeps NAT mappings fresh, matching the
+  // pattern Autopass uses for reliable holepunch.
+  await swarm.join(topicBuffer, { server: true, client: true }).flushed()
 
   return { topic: b4a.toString(topicBuffer, 'hex') }
 }
@@ -64,7 +61,6 @@ export const personalSwarmClose = async () => {
   }
   swarm = null
   topicBuffer = null
-  pendingSends.clear()
 }
 
 export const personalSwarmGetTopic = () => {
@@ -86,18 +82,25 @@ export const personalSwarmSend = async (targetTopicHex, envelopeHex) => {
   if (!targetTopicHex || !envelopeHex) {
     return { ok: false, reason: 'missing-args' }
   }
-  if (swarm === null) {
-    return { ok: false, reason: 'swarm-not-initialised' }
-  }
-  if (pendingSends.has(targetTopicHex)) {
-    return { ok: false, reason: 'already-pending' }
-  }
 
   const targetTopic = b4a.from(targetTopicHex, 'hex')
   const envelopeBytes = b4a.from(envelopeHex, 'hex')
   if (envelopeBytes.length > MAX_ENVELOPE_BYTES) {
     return { ok: false, reason: 'envelope-too-large' }
   }
+
+  const vaultsInstance = getVaultsInstance()
+  if (!vaultsInstance) {
+    return { ok: false, reason: 'master-vault-not-ready' }
+  }
+  const store = vaultsInstance.store
+  const conf = await getConfig(store)
+
+  const sendSwarm = new Hyperswarm({
+    keyPair: await store.createKeyPair('personal-swarm-send'),
+    dht: swarm?.dht,
+    relayThrough: conf?.current?.blindRelays ?? null
+  })
 
   return new Promise((resolve) => {
     let resolved = false
@@ -106,7 +109,7 @@ export const personalSwarmSend = async (targetTopicHex, envelopeHex) => {
       if (resolved) return
       resolved = true
       clearTimeout(timeout)
-      pendingSends.delete(targetTopicHex)
+      sendSwarm.destroy().catch(() => {})
       resolve(next)
     }
 
@@ -114,13 +117,19 @@ export const personalSwarmSend = async (targetTopicHex, envelopeHex) => {
       finish({ ok: false, reason: 'lookup-timeout' })
     }, SEND_LOOKUP_TIMEOUT_MS)
 
-    pendingSends.set(targetTopicHex, {
-      targetTopic,
-      envelopeBytes,
-      finish
+    sendSwarm.on('connection', (connection) => {
+      writeFramed(connection, envelopeBytes)
+        .then(() => finish({ ok: true }))
+        .catch((err) => {
+          workletLogger.error('personalSwarm: send failed', { err })
+          finish({
+            ok: false,
+            reason: `write-failed: ${err?.message ?? err}`
+          })
+        })
     })
 
-    swarm
+    sendSwarm
       .join(targetTopic, { server: false, client: true })
       .flushed()
       .catch((err) => {
@@ -128,25 +137,6 @@ export const personalSwarmSend = async (targetTopicHex, envelopeHex) => {
         finish({ ok: false, reason: 'join-failed' })
       })
   })
-}
-
-function matchPendingSend(connection, peerInfo) {
-  if (!peerInfo?.client) return false
-  for (const pending of pendingSends.values()) {
-    if (peerInfo.topics?.some((t) => b4a.equals(t, pending.targetTopic))) {
-      writeFramed(connection, pending.envelopeBytes)
-        .then(() => pending.finish({ ok: true }))
-        .catch((err) => {
-          workletLogger.error('personalSwarm: send failed', { err })
-          pending.finish({
-            ok: false,
-            reason: `write-failed: ${err?.message ?? err}`
-          })
-        })
-      return true
-    }
-  }
-  return false
 }
 
 async function handleIncomingConnection(connection) {
