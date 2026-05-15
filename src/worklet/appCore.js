@@ -992,6 +992,7 @@ export const handleRpcCommand = async (req) => {
 
     case API.CLOSE_ALL_INSTANCES:
       try {
+        await personalSwarmClose()
         await closeAllInstances()
         await destroySharedDHT()
 
@@ -1278,6 +1279,7 @@ export const setupIPC = () => {
         try {
           workletLogger.log('Suspendify suspending instances')
           await suspendAllInstances()
+          await personalSwarmClose()
           workletLogger.log('Instances suspended successfully')
 
           if (sus.interrupted) {
@@ -1302,6 +1304,9 @@ export const setupIPC = () => {
         try {
           workletLogger.log('Suspendify resuming instances')
           await resumeAllInstances()
+          await personalSwarmInit().catch((err) =>
+            workletLogger.error('personalSwarmInit on resume failed', { err })
+          )
           workletLogger.log('Instances resumed successfully')
         } catch (error) {
           workletLogger.error('Caught resume error:', error)

@@ -155,6 +155,8 @@ async function handleIncomingConnection(connection) {
   }
 }
 
+const WRITE_FRAMED_CEILING_MS = 2_000
+
 function writeFramed(connection, bytes) {
   return new Promise((resolve, reject) => {
     const header = b4a.alloc(FRAME_HEADER_BYTES)
@@ -165,6 +167,7 @@ function writeFramed(connection, bytes) {
     const finish = (err) => {
       if (done) return
       done = true
+      clearTimeout(ceiling)
       if (err) reject(err)
       else resolve()
     }
@@ -172,6 +175,9 @@ function writeFramed(connection, bytes) {
     connection.once('error', (err) => {
       if (writesQueued) return finish()
       finish(err)
+    })
+    connection.once('close', () => {
+      if (writesQueued) finish()
     })
 
     try {
@@ -183,7 +189,7 @@ function writeFramed(connection, bytes) {
       return finish(err)
     }
 
-    setTimeout(() => finish(), 100)
+    const ceiling = setTimeout(() => finish(), WRITE_FRAMED_CEILING_MS)
   })
 }
 
