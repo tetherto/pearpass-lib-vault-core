@@ -609,10 +609,25 @@ export const removeVault = async (vaultId) => {
     }
   }
 
-  await vaultsInstance.remove(`vault/${vaultId}`)
-
+  // Wipe disk first, with retries. Only drop the master entry once the files
+  // are gone, so a partial failure leaves the vault re-openable.
   const fullPath = buildPath(`vault/${vaultId}`)
-  await fs.promises.rm(fullPath, { recursive: true, force: true })
+  let lastErr
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      await fs.promises.rm(fullPath, { recursive: true, force: true })
+      lastErr = null
+      break
+    } catch (err) {
+      lastErr = err
+      if (attempt < 3) {
+        await new Promise((resolve) => setTimeout(resolve, 100 * attempt))
+      }
+    }
+  }
+  if (lastErr) throw lastErr
+
+  await vaultsInstance.remove(`vault/${vaultId}`)
 }
 
 /**
