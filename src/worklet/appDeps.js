@@ -346,6 +346,17 @@ export const initInstanceWithNewBlindEncryption = async ({
  * @returns {Promise<Autopass>}
  */
 export const initActiveVaultInstance = async ({ id, encryptionKey }) => {
+  if (
+    isActiveVaultInitialized &&
+    lastActiveVaultId === id &&
+    activeVaultInstance
+  ) {
+    return activeVaultInstance
+  }
+  if (activeVaultInstance) {
+    await closeActiveVaultInstance()
+  }
+
   isActiveVaultInitialized = false
 
   const hashedPassword = await getHashedPassword()
