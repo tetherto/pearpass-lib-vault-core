@@ -125,7 +125,10 @@ export const personalSwarmSend = async (targetTopicHex, envelopeHex) => {
         .then(() => finish({ ok: true }))
         .catch((err) => {
           workletLogger.error('personalSwarm: send failed', { err })
-          finish({ ok: false, reason: 'write-failed' })
+          finish({
+            ok: false,
+            reason: `write-failed: ${err?.message ?? err}`
+          })
         })
     })
 
