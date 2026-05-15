@@ -188,9 +188,6 @@ function writeFramed(connection, bytes) {
       if (writesQueued) return finish()
       finish(err)
     })
-    connection.once('close', () => {
-      if (writesQueued) finish()
-    })
 
     try {
       connection.write(header)
@@ -198,8 +195,10 @@ function writeFramed(connection, bytes) {
       connection.end()
       writesQueued = true
     } catch (err) {
-      finish(err)
+      return finish(err)
     }
+
+    setTimeout(() => finish(), 100)
   })
 }
 
