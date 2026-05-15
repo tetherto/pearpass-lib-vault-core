@@ -10,7 +10,7 @@ import { getSharedDHT } from '../worklet/utils/dht'
  */
 
 export const validateMirrorKeyViaDHT = async (key, options = {}) => {
-  const { timeoutMs = 5000 } = options
+  const { timeoutMs = 30000 } = options
 
   let decodedKey
   try {
@@ -41,8 +41,7 @@ export const validateMirrorKeyViaDHT = async (key, options = {}) => {
     // If no event is emitted, resolve with false after timeout
     const timer = setTimeout(() => resolveOnce(false), timeoutMs)
 
-    socket.once('error', () => resolveOnce(false))
-    socket.once('close', () => resolveOnce(false))
+    socket.on('error', () => {})
     socket.once('open', () => resolveOnce(true))
   })
 }
