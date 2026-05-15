@@ -97,8 +97,6 @@ export const personalSwarmSend = async (targetTopicHex, envelopeHex) => {
   const conf = await getConfig(store)
 
   const sendSwarm = new Hyperswarm({
-    keyPair: await store.createKeyPair('personal-swarm-send'),
-    dht: swarm?.dht,
     relayThrough: conf?.current?.blindRelays ?? null
   })
 
