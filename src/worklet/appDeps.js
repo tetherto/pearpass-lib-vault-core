@@ -36,6 +36,10 @@ let isEncryptionInitialized = false
 let vaultsInstance
 let isVaultsInitialized = false
 
+// Separate from the writer keypair so signMessage can't forge hypercore
+// block signatures. Derived from the store so it persists across restarts.
+let personalKeyPair = null
+
 let activeVaultInstance
 let isActiveVaultInitialized = false
 
@@ -562,6 +566,21 @@ export const closeVaultsInstance = async () => {
 
   vaultsInstance = null
   isVaultsInitialized = false
+  personalKeyPair = null
+}
+
+/**
+ * @returns {Promise<{ publicKey: Buffer, secretKey: Buffer }>}
+ */
+export const getPersonalKeyPair = async () => {
+  if (personalKeyPair) return personalKeyPair
+  if (!isVaultsInitialized) {
+    throw new Error('getPersonalKeyPair: master vault not initialised')
+  }
+  personalKeyPair = await vaultsInstance.store.createKeyPair(
+    'pearpass-personal-id'
+  )
+  return personalKeyPair
 }
 
 /**
@@ -635,18 +654,14 @@ export const vaultsRemove = async (key) => {
 }
 
 /**
- * Sign a hex-encoded message with the master vault's writer ed25519 secret.
  * @param {string} messageHex
- * @returns {string} hex signature
+ * @returns {Promise<string>} hex signature
  */
-export const signMessage = (messageHex) => {
+export const signMessage = async (messageHex) => {
   if (!isVaultsInitialized) {
     throw new Error('Vaults not initialised')
   }
-  const secretKey = vaultsInstance.base?.local?.keyPair?.secretKey
-  if (!secretKey) {
-    throw new Error('signMessage: no local writer keypair')
-  }
+  const { secretKey } = await getPersonalKeyPair()
   const message = b4a.from(messageHex, 'hex')
   const signature = b4a.alloc(sodium.crypto_sign_BYTES)
   sodium.crypto_sign_detached(signature, message, secretKey)
@@ -692,7 +707,9 @@ export const vaultsFind = async (options = {}) => {
       try {
         const parsedValue = JSON.parse(value)
         results.push({ key, value: parsedValue })
-      } catch {}
+      } catch (err) {
+        workletLogger.error('vaultsFind: failed to parse record', { key, err })
+      }
     })
     stream.on('end', () => resolve(results))
     stream.on('error', (err) => reject(err))

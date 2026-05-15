@@ -1,17 +1,19 @@
 import b4a from 'b4a'
 import Hyperswarm from 'hyperswarm'
 
-import { getVaultsInstance } from './appDeps'
+import { getPersonalKeyPair, getVaultsInstance } from './appDeps'
 import { getConfig } from './utils/swarm'
 import { workletLogger } from './utils/workletLogger'
 
 const FRAME_HEADER_BYTES = 4
 const MAX_ENVELOPE_BYTES = 64 * 1024
+const TOPIC_BYTES = 32
 const SEND_LOOKUP_TIMEOUT_MS = 30_000
+const READ_FRAMED_TIMEOUT_MS = 10_000
 
 let swarm = null
 let topicBuffer = null
-let envelopeListener = null
+const envelopeListeners = new Set()
 
 export const isPersonalSwarmRunning = () => swarm !== null
 
@@ -25,11 +27,8 @@ export const personalSwarmInit = async () => {
     throw new Error('personalSwarmInit: master vault not initialised')
   }
 
-  const localPublicKey = vaultsInstance.base?.local?.keyPair?.publicKey
-  if (!localPublicKey) {
-    throw new Error('personalSwarmInit: master vault has no local keypair')
-  }
-  topicBuffer = b4a.from(localPublicKey)
+  const { publicKey } = await getPersonalKeyPair()
+  topicBuffer = b4a.from(publicKey)
 
   const store = vaultsInstance.store
   const conf = await getConfig(store)
@@ -69,18 +68,37 @@ export const personalSwarmGetTopic = () => {
 }
 
 /**
- * @param {(envelopeHex: string, peerInfo: { remotePublicKey: string }) => void} handler
+ * @param {(envelopeHex: string) => void} handler
+ * @returns {() => void} unsubscribe
  */
 export const personalSwarmOnEnvelope = (handler) => {
-  envelopeListener = handler
+  envelopeListeners.add(handler)
+  return () => envelopeListeners.delete(handler)
 }
 
 /**
+ * Fire-and-forget. `ok: true` means queued at the local socket, not
+ * delivered to the peer. Use app-level acks for delivery semantics.
  * @returns {Promise<{ ok: true } | { ok: false, reason: string }>}
  */
 export const personalSwarmSend = async (targetTopicHex, envelopeHex) => {
   if (!targetTopicHex || !envelopeHex) {
     return { ok: false, reason: 'missing-args' }
+  }
+  if (
+    typeof targetTopicHex !== 'string' ||
+    targetTopicHex.length !== TOPIC_BYTES * 2 ||
+    !/^[0-9a-fA-F]+$/.test(targetTopicHex)
+  ) {
+    return { ok: false, reason: 'invalid-topic' }
+  }
+  if (
+    typeof envelopeHex !== 'string' ||
+    envelopeHex.length === 0 ||
+    envelopeHex.length % 2 !== 0 ||
+    !/^[0-9a-fA-F]+$/.test(envelopeHex)
+  ) {
+    return { ok: false, reason: 'invalid-envelope' }
   }
 
   const targetTopic = b4a.from(targetTopicHex, 'hex')
@@ -140,14 +158,18 @@ export const personalSwarmSend = async (targetTopicHex, envelopeHex) => {
 async function handleIncomingConnection(connection) {
   try {
     const envelopeBytes = await readFramed(connection)
-    if (!envelopeListener) return
+    if (envelopeListeners.size === 0) return
 
-    const peerInfo = {
-      remotePublicKey: connection.remotePublicKey
-        ? b4a.toString(connection.remotePublicKey, 'hex')
-        : ''
+    // Don't pass peer info: connection.remotePublicKey is an ephemeral
+    // Noise key, not the sender's identity. Trust the envelope signature.
+    const envelopeHex = b4a.toString(envelopeBytes, 'hex')
+    for (const handler of envelopeListeners) {
+      try {
+        handler(envelopeHex)
+      } catch (err) {
+        workletLogger.error('personalSwarm: envelope handler threw', { err })
+      }
     }
-    envelopeListener(b4a.toString(envelopeBytes, 'hex'), peerInfo)
   } finally {
     try {
       connection.end()
@@ -157,6 +179,8 @@ async function handleIncomingConnection(connection) {
 
 const WRITE_FRAMED_CEILING_MS = 2_000
 
+// Resolves once writes are queued locally, not on peer delivery. See
+// personalSwarmSend.
 function writeFramed(connection, bytes) {
   return new Promise((resolve, reject) => {
     const header = b4a.alloc(FRAME_HEADER_BYTES)
@@ -198,14 +222,24 @@ async function readFramed(connection) {
     const chunks = []
     let expected = null
     let received = 0
+    let settled = false
 
     const finish = (err, bytes) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timeout)
       connection.removeAllListeners('data')
       connection.removeAllListeners('end')
       connection.removeAllListeners('error')
       if (err) reject(err)
       else resolve(bytes)
     }
+
+    // Cap total receive time so a stalled peer can't pin a worker socket.
+    const timeout = setTimeout(
+      () => finish(new Error('read-timeout')),
+      READ_FRAMED_TIMEOUT_MS
+    )
 
     connection.on('data', (chunk) => {
       chunks.push(chunk)

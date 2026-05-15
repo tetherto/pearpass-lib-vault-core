@@ -28,6 +28,13 @@ jest.mock('bare-crypto', () => ({
   })
 }))
 
+function mockMakeKeyPairFromSeed(seed) {
+  const publicKey = Buffer.alloc(mockSodium.crypto_sign_PUBLICKEYBYTES)
+  const secretKey = Buffer.alloc(mockSodium.crypto_sign_SECRETKEYBYTES)
+  mockSodium.crypto_sign_seed_keypair(publicKey, secretKey, seed)
+  return { publicKey, secretKey }
+}
+
 jest.mock('autopass', () => {
   const mockPair = {
     finished: jest.fn().mockResolvedValue({
@@ -105,7 +112,17 @@ jest.mock('autopass', () => {
         find: jest.fn().mockReturnValue({
           async *[Symbol.asyncIterator]() {}
         })
+      },
+      local: {
+        keyPair: mockMakeKeyPairFromSeed(Buffer.alloc(32, 0x11))
       }
+    },
+    store: {
+      createKeyPair: jest.fn(async (name) => {
+        const seed = Buffer.alloc(32)
+        Buffer.from(`mock-store:${name}`).copy(seed)
+        return mockMakeKeyPairFromSeed(seed)
+      })
     },
     writerKey: Buffer.from(
       'aabbccddeeff0011223344556677889900aabbccddeeff00112233445566778899',
@@ -237,6 +254,8 @@ global.Bare = {
 import bareFs from 'bare-fs'
 
 import * as appDeps from './appDeps'
+
+const mockSodium = require('sodium-native')
 
 describe('appDeps module functions (excluding encryption)', () => {
   beforeEach(async () => {
@@ -450,6 +469,29 @@ describe('appDeps module functions (excluding encryption)', () => {
 
       await appDeps.vaultRemove('key3')
       expect(mockInstance.remove).toHaveBeenCalledWith('key3')
+    })
+
+    test('signMessage uses the personal-identity keypair, not the autobase writer keypair', async () => {
+      // Regression guard: if this flips, signMessage is back to being a
+      // hypercore block-signature oracle.
+      const sodium = require('sodium-native')
+
+      const message = Buffer.from('arbitrary attacker-supplied bytes', 'utf-8')
+      const messageHex = message.toString('hex')
+
+      const signatureHex = await appDeps.signMessage(messageHex)
+      const signature = Buffer.from(signatureHex, 'hex')
+
+      const { publicKey: personalPub } = await appDeps.getPersonalKeyPair()
+      const writerPub = appDeps.getVaultsInstance().base.local.keyPair.publicKey
+
+      expect(Buffer.compare(personalPub, writerPub)).not.toBe(0)
+      expect(
+        sodium.crypto_sign_verify_detached(signature, message, personalPub)
+      ).toBe(true)
+      expect(
+        sodium.crypto_sign_verify_detached(signature, message, writerPub)
+      ).toBe(false)
     })
 
     test('activeVaultGet calls get on activeVaultInstance and returns result', async () => {

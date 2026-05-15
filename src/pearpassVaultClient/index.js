@@ -68,6 +68,26 @@ export class PearpassVaultClient extends EventEmitter {
 
           break
 
+        case API.ON_PERSONAL_SWARM_ERROR:
+          try {
+            const raw = req.data
+            const text =
+              typeof raw === 'string'
+                ? raw
+                : raw
+                  ? b4a.toString(raw, 'utf8')
+                  : '{}'
+            const parsed = JSON.parse(text)
+            this.emit('personal-swarm-error', parsed)
+          } catch (err) {
+            this._logger.error(
+              'Failed to parse personal-swarm-error payload',
+              err
+            )
+          }
+
+          break
+
         default:
           this._logger.error('Unknown command:', req.command)
       }

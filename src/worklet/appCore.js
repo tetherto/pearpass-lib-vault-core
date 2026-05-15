@@ -88,27 +88,28 @@ import { validateInviteCode } from '../utils/validateInviteCode.js'
 let rpc = null
 
 let masterUpdateHandler = null
+let masterUpdateBoundInstance = null
 
-// Notify the parent process whenever the master vault mutates so multi-process
-// callers (e.g. extension deletes a vault) stay in sync. Idempotent — only
-// rebinds our own handler so unrelated 'update' subscribers aren't clobbered.
+// Idempotent. Tracks the bound instance so a re-init unbinds from the
+// previous one instead of no-op'ing on the new one.
 const wireMasterUpdateListener = () => {
   const inst = getVaultsInstance()
   if (!inst) return
-  if (masterUpdateHandler) {
-    inst.removeListener('update', masterUpdateHandler)
+  if (masterUpdateHandler && masterUpdateBoundInstance) {
+    masterUpdateBoundInstance.removeListener('update', masterUpdateHandler)
   }
   masterUpdateHandler = () => {
     rpc.request(API.ON_MASTER_UPDATE).send()
   }
+  masterUpdateBoundInstance = inst
   inst.on('update', masterUpdateHandler)
 }
 
 const wirePersonalSwarmEnvelopeListener = () => {
-  personalSwarmOnEnvelope((envelope, peerInfo) => {
+  personalSwarmOnEnvelope((envelope) => {
     if (!rpc) return
     const req = rpc.request(API.ON_PERSONAL_SWARM_ENVELOPE)
-    req.send(JSON.stringify({ envelope, peerInfo }))
+    req.send(JSON.stringify({ envelope }))
   })
 }
 
@@ -435,7 +436,7 @@ export const handleRpcCommand = async (req) => {
 
     case API.SIGN_MESSAGE:
       try {
-        const signature = signMessage(requestData?.message)
+        const signature = await signMessage(requestData?.message)
         req.reply(JSON.stringify({ data: signature }))
       } catch (error) {
         req.reply(JSON.stringify({ error: `Error signing message: ${error}` }))
@@ -1336,9 +1337,20 @@ export const setupIPC = () => {
         try {
           workletLogger.log('Suspendify resuming instances')
           await resumeAllInstances()
-          await personalSwarmInit().catch((err) =>
+          try {
+            await personalSwarmInit()
+          } catch (err) {
+            // Surface to upstream so the device doesn't silently look offline.
             workletLogger.error('personalSwarmInit on resume failed', { err })
-          )
+            try {
+              rpc?.request(API.ON_PERSONAL_SWARM_ERROR).send(
+                JSON.stringify({
+                  reason: 'resume-init-failed',
+                  message: err?.message ?? String(err)
+                })
+              )
+            } catch {}
+          }
           workletLogger.log('Instances resumed successfully')
         } catch (error) {
           workletLogger.error('Caught resume error:', error)

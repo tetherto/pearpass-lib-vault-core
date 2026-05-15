@@ -73,7 +73,8 @@ export const API = {
   MASTER_VAULT_REMOVE: 71,
   MASTER_VAULT_FIND: 72,
   SIGN_MESSAGE: 73,
-  VERIFY_SIGNATURE: 74
+  VERIFY_SIGNATURE: 74,
+  ON_PERSONAL_SWARM_ERROR: 75
 }
 
 export const API_BY_VALUE = Object.entries(API).reduce((acc, [key, value]) => {
