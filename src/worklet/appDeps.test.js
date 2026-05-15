@@ -439,68 +439,6 @@ describe('appDeps module functions (excluding encryption)', () => {
       )
     })
 
-    test('removeVault announces our departure from the active vault before wipe', async () => {
-      bareFs.promises.rm.mockClear()
-
-      await appDeps.initActiveVaultInstance({
-        id: 'vault1',
-        encryptionKey: 'key'
-      })
-
-      const activeVault = appDeps.getActiveVaultInstance()
-      const myWriterHex = activeVault.writerKey.toString('hex')
-      activeVault.remove = jest.fn().mockResolvedValue()
-      activeVault.removeWriter = jest.fn().mockResolvedValue()
-      // Stub list() to return one device matching our writerKey.
-      activeVault.list = jest.fn().mockResolvedValue({
-        on(event, cb) {
-          if (event === 'data') {
-            cb({
-              key: 'device/me',
-              value: JSON.stringify({
-                id: 'me',
-                name: 'desktop',
-                writerKey: myWriterHex
-              })
-            })
-          }
-          if (event === 'end') cb()
-        }
-      })
-
-      await appDeps.removeVault('vault1')
-
-      expect(activeVault.remove).toHaveBeenCalledWith('device/me')
-      expect(activeVault.removeWriter).toHaveBeenCalledWith(
-        activeVault.writerKey
-      )
-    })
-
-    test('removeVault swallows leave errors and still wipes', async () => {
-      bareFs.promises.rm.mockClear()
-
-      await appDeps.initActiveVaultInstance({
-        id: 'vault1',
-        encryptionKey: 'key'
-      })
-
-      const activeVault = appDeps.getActiveVaultInstance()
-      activeVault.removeWriter = jest
-        .fn()
-        .mockRejectedValue(new Error('peer gone'))
-
-      const vaultsInstance = appDeps.getVaultsInstance()
-      vaultsInstance.remove = jest.fn().mockResolvedValue()
-
-      await appDeps.removeVault('vault1')
-
-      expect(vaultsInstance.remove).toHaveBeenCalledWith('vault/vault1')
-      expect(bareFs.promises.rm).toHaveBeenCalledWith(
-        expect.stringContaining('vault/vault1'),
-        { recursive: true, force: true }
-      )
-    })
-
     test('vaultRemove calls remove on activeVaultInstance', async () => {
       await appDeps.initActiveVaultInstance({
         id: 'vault1',

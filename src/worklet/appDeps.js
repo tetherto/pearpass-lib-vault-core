@@ -700,38 +700,10 @@ export const vaultsFind = async (options = {}) => {
 }
 
 /**
- * Time to wait after appending our leave entries for connected peers to
- * replicate them before we wipe our local hypercore. Best-effort: if peers
- * are offline they won't see the removal; this only fixes the common case
- * where both devices are online at delete time.
- */
-const LEAVE_REPLICATION_WAIT_MS = 1500
-
-const trySelfRemoveFromAutobase = async () => {
-  try {
-    const myWriterKey = activeVaultInstance.writerKey
-    if (!myWriterKey) return
-    const myWriterHex = b4a.toString(myWriterKey, 'hex')
-    const devices = await activeVaultList('device/')
-    const myDevice = devices.find((d) => d?.writerKey === myWriterHex)
-    if (myDevice?.id) {
-      await activeVaultInstance.remove(`device/${myDevice.id}`)
-    }
-    await activeVaultInstance.removeWriter(myWriterKey)
-    await new Promise((resolve) =>
-      setTimeout(resolve, LEAVE_REPLICATION_WAIT_MS)
-    )
-  } catch (err) {
-    workletLogger.error('removeVault: leave step failed', { err })
-  }
-}
-
-/**
- * Removes a vault from this device: announces our departure to peers (so we
- * disappear from their paired-devices list), closes the active instance if
- * it owns the vault, drops the master entry, and wipes the on-disk autobase
- * directory. Atomic at the RPC boundary so a master-removed-but-disk-kept
- * state cannot leak to callers.
+ * Removes a vault from this device: closes the active instance if it owns the
+ * vault, drops the master entry, and wipes the on-disk autobase directory.
+ * Departure announcements to peers are handled by the lib-vault leave-vault
+ * action (personal-swarm) before this is called.
  *
  * @param {string} vaultId
  * @returns {Promise<void>}
@@ -742,15 +714,6 @@ export const removeVault = async (vaultId) => {
   }
   if (!isVaultsInitialized) {
     throw new Error('Vaults not initialised')
-  }
-
-  const isActiveBeingRemoved =
-    lastActiveVaultId === vaultId &&
-    isActiveVaultInitialized &&
-    activeVaultInstance
-
-  if (isActiveBeingRemoved) {
-    await trySelfRemoveFromAutobase()
   }
 
   if (lastActiveVaultId === vaultId) {
