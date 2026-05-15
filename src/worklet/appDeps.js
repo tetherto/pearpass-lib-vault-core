@@ -743,18 +743,22 @@ export const removeVault = async (vaultId) => {
   }
 
   // Wipe disk first, with retries. Only drop the master entry once the files
-  // are gone, so a partial failure leaves the vault re-openable.
+  // are gone, so a partial failure leaves the vault re-openable. The backoff
+  // is sized for Windows: handle release after close() can take 100+ ms,
+  // longer with Defender or indexer activity touching the autobase dir.
   const fullPath = buildPath(`vault/${vaultId}`)
+  const RETRY_DELAYS_MS = [250, 500, 1000]
   let lastErr
-  for (let attempt = 1; attempt <= 3; attempt++) {
+  for (let attempt = 0; attempt < RETRY_DELAYS_MS.length + 1; attempt++) {
     try {
       await fs.promises.rm(fullPath, { recursive: true, force: true })
       lastErr = null
       break
     } catch (err) {
       lastErr = err
-      if (attempt < 3) {
-        await new Promise((resolve) => setTimeout(resolve, 100 * attempt))
+      const delay = RETRY_DELAYS_MS[attempt]
+      if (delay !== undefined) {
+        await new Promise((resolve) => setTimeout(resolve, delay))
       }
     }
   }
