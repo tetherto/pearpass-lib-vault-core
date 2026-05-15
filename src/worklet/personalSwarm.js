@@ -102,14 +102,11 @@ export const personalSwarmSend = async (targetTopicHex, envelopeHex) => {
   return new Promise((resolve) => {
     let resolved = false
 
-    const finish = async (next) => {
+    const finish = (next) => {
       if (resolved) return
       resolved = true
       clearTimeout(timeout)
       pendingSends.delete(targetTopicHex)
-      try {
-        await swarm.leave(targetTopic)
-      } catch {}
       resolve(next)
     }
 
