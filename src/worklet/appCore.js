@@ -85,17 +85,21 @@ import { validateInviteCode } from '../utils/validateInviteCode.js'
 
 let rpc = null
 
+let masterUpdateHandler = null
+
 // Notify the parent process whenever the master vault mutates so multi-process
-// callers (e.g. extension deletes a vault) stay in sync. Idempotent — each
-// init path calls this so the listener follows whichever path created the
-// vaultsInstance.
+// callers (e.g. extension deletes a vault) stay in sync. Idempotent — only
+// rebinds our own handler so unrelated 'update' subscribers aren't clobbered.
 const wireMasterUpdateListener = () => {
   const inst = getVaultsInstance()
   if (!inst) return
-  inst.removeAllListeners('update')
-  inst.on('update', () => {
+  if (masterUpdateHandler) {
+    inst.removeListener('update', masterUpdateHandler)
+  }
+  masterUpdateHandler = () => {
     rpc.request(API.ON_MASTER_UPDATE).send()
-  })
+  }
+  inst.on('update', masterUpdateHandler)
 }
 
 const wirePersonalSwarmEnvelopeListener = () => {
