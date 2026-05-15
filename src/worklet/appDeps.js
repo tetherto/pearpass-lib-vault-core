@@ -339,6 +339,13 @@ export const initInstanceWithNewBlindEncryption = async ({
   }
 }
 
+// Serialise concurrent activeVaultInit calls. Without this, two callers
+// targeting the same vault (e.g. the desktop renderer and the extension both
+// auto-switching after a delete) race on the Corestore lock and the loser
+// gets "File descriptor could not be locked".
+/** @type {Promise<Autopass> | null} */
+let activeVaultInitInFlight = null
+
 /**
  * @param {Object} params
  * @param {string} params.id
@@ -353,34 +360,54 @@ export const initActiveVaultInstance = async ({ id, encryptionKey }) => {
   ) {
     return activeVaultInstance
   }
-  if (activeVaultInstance) {
-    await closeActiveVaultInstance()
+
+  if (activeVaultInitInFlight) {
+    await activeVaultInitInFlight.catch(() => {})
+    if (
+      isActiveVaultInitialized &&
+      lastActiveVaultId === id &&
+      activeVaultInstance
+    ) {
+      return activeVaultInstance
+    }
   }
 
-  isActiveVaultInitialized = false
+  activeVaultInitInFlight = (async () => {
+    if (activeVaultInstance) {
+      await closeActiveVaultInstance()
+    }
 
-  const hashedPassword = await getHashedPassword()
+    isActiveVaultInitialized = false
 
-  activeVaultInstance = await initInstance({
-    path: `vault/${id}`,
-    encryptionKey,
-    hashedPassword
-  })
+    const hashedPassword = await getHashedPassword()
 
-  // Force linearization and flush to disk so readOnly clients (autofill) can read the data
-  await activeVaultInstance.base.update()
+    activeVaultInstance = await initInstance({
+      path: `vault/${id}`,
+      encryptionKey,
+      hashedPassword
+    })
 
-  isActiveVaultInitialized = true
+    // Force linearization and flush to disk so readOnly clients (autofill) can read the data
+    await activeVaultInstance.base.update()
 
-  // cache last init params for restart
-  lastActiveVaultId = id
-  lastActiveVaultEncryptionKey = encryptionKey
+    isActiveVaultInitialized = true
 
-  if (lastOnUpdateCallback) {
-    lastOnUpdateCallback()
+    // cache last init params for restart
+    lastActiveVaultId = id
+    lastActiveVaultEncryptionKey = encryptionKey
+
+    if (lastOnUpdateCallback) {
+      lastOnUpdateCallback()
+    }
+
+    return activeVaultInstance
+  })()
+
+  try {
+    return await activeVaultInitInFlight
+  } finally {
+    activeVaultInitInFlight = null
   }
-
-  return activeVaultInstance
 }
 
 /**
