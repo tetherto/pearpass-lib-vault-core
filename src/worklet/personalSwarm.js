@@ -7,7 +7,7 @@ import { workletLogger } from './utils/workletLogger'
 
 const FRAME_HEADER_BYTES = 4
 const MAX_ENVELOPE_BYTES = 64 * 1024
-const SEND_LOOKUP_TIMEOUT_MS = 15_000
+const SEND_LOOKUP_TIMEOUT_MS = 30_000
 
 let swarm = null
 let topicBuffer = null
