@@ -25,11 +25,11 @@ export const personalSwarmInit = async () => {
     throw new Error('personalSwarmInit: master vault not initialised')
   }
 
-  const localWriterKey = vaultsInstance.base?.local?.key
-  if (!localWriterKey) {
-    throw new Error('personalSwarmInit: master vault has no local writer')
+  const localPublicKey = vaultsInstance.base?.local?.keyPair?.publicKey
+  if (!localPublicKey) {
+    throw new Error('personalSwarmInit: master vault has no local keypair')
   }
-  topicBuffer = b4a.from(localWriterKey)
+  topicBuffer = b4a.from(localPublicKey)
 
   const store = vaultsInstance.store
   const conf = await getConfig(store)
