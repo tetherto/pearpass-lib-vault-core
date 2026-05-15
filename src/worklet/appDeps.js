@@ -608,6 +608,42 @@ export const vaultsRemove = async (key) => {
 }
 
 /**
+ * Sign a hex-encoded message with the master vault's writer ed25519 secret.
+ * @param {string} messageHex
+ * @returns {string} hex signature
+ */
+export const signMessage = (messageHex) => {
+  if (!isVaultsInitialized) {
+    throw new Error('Vaults not initialised')
+  }
+  const secretKey = vaultsInstance.base?.local?.keyPair?.secretKey
+  if (!secretKey) {
+    throw new Error('signMessage: no local writer keypair')
+  }
+  const message = b4a.from(messageHex, 'hex')
+  const signature = b4a.alloc(sodium.crypto_sign_BYTES)
+  sodium.crypto_sign_detached(signature, message, secretKey)
+  return b4a.toString(signature, 'hex')
+}
+
+/**
+ * @param {string} messageHex
+ * @param {string} signatureHex
+ * @param {string} publicKeyHex
+ * @returns {boolean}
+ */
+export const verifySignature = (messageHex, signatureHex, publicKeyHex) => {
+  try {
+    const message = b4a.from(messageHex, 'hex')
+    const signature = b4a.from(signatureHex, 'hex')
+    const publicKey = b4a.from(publicKeyHex, 'hex')
+    return sodium.crypto_sign_verify_detached(signature, message, publicKey)
+  } catch {
+    return false
+  }
+}
+
+/**
  * @param {{ gte?: { key: string }, lt?: { key: string } }} options
  * @returns {Promise<Array<{ key: string, value: any }>>}
  */

@@ -242,6 +242,34 @@ export class PearpassVaultClient extends EventEmitter {
   }
 
   /**
+   * @param {string} messageHex
+   * @returns {Promise<string>} hex signature
+   */
+  async signMessage(messageHex) {
+    return this._handleRequest({
+      command: API.SIGN_MESSAGE,
+      data: { message: messageHex }
+    })
+  }
+
+  /**
+   * @param {string} messageHex
+   * @param {string} signatureHex
+   * @param {string} publicKeyHex
+   * @returns {Promise<boolean>}
+   */
+  async verifySignature(messageHex, signatureHex, publicKeyHex) {
+    return this._handleRequest({
+      command: API.VERIFY_SIGNATURE,
+      data: {
+        message: messageHex,
+        signature: signatureHex,
+        publicKey: publicKeyHex
+      }
+    })
+  }
+
+  /**
    * Removes a vault from this device: closes the active instance if owned,
    * drops the master entry, and wipes the autobase directory.
    * @param {string} vaultId - The id of the vault to remove.

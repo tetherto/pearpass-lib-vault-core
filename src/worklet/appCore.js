@@ -42,6 +42,8 @@ import {
   vaultsAdd,
   vaultsRemove,
   vaultsFind,
+  signMessage,
+  verifySignature,
   removeVault,
   vaultsGet,
   masterVaultInit,
@@ -426,6 +428,32 @@ export const handleRpcCommand = async (req) => {
           JSON.stringify({
             error: `Error finding in master vault: ${error}`
           })
+        )
+      }
+
+      break
+
+    case API.SIGN_MESSAGE:
+      try {
+        const signature = signMessage(requestData?.message)
+        req.reply(JSON.stringify({ data: signature }))
+      } catch (error) {
+        req.reply(JSON.stringify({ error: `Error signing message: ${error}` }))
+      }
+
+      break
+
+    case API.VERIFY_SIGNATURE:
+      try {
+        const ok = verifySignature(
+          requestData?.message,
+          requestData?.signature,
+          requestData?.publicKey
+        )
+        req.reply(JSON.stringify({ data: ok }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({ error: `Error verifying signature: ${error}` })
         )
       }
 
