@@ -69,6 +69,7 @@ import { receiveFileStream } from '../utils/recieveFileStream.js'
 import { sendFileStream } from '../utils/sendFileStream.js'
 import { isPearWorker } from './utils/isPearWorker'
 import { parseRequestData } from './utils/parseRequestData'
+import { sanitizeRequestDataForLog } from './utils/sanitizeRequestDataForLog'
 import { workletLogger } from './utils/workletLogger'
 import { validateInviteCode } from '../utils/validateInviteCode.js'
 
@@ -79,7 +80,10 @@ export const handleRpcCommand = async (req) => {
 
   const requestData = parseRequestData(req.data)
 
-  workletLogger.log(`Received command: ${commandName}`, requestData ?? '')
+  workletLogger.log(
+    `Received command: ${commandName}`,
+    sanitizeRequestDataForLog(commandName, requestData) ?? ''
+  )
 
   switch (req.command) {
     case API.STORAGE_PATH_SET:
@@ -453,10 +457,10 @@ export const handleRpcCommand = async (req) => {
 
     case API.PAIR_ACTIVE_VAULT:
       try {
-        workletLogger.debug('Validating invite code:', requestData.inviteCode)
+        workletLogger.debug('Validating invite code')
         validateInviteCode(requestData.inviteCode)
 
-        workletLogger.debug('Pairing with invite code:', requestData.inviteCode)
+        workletLogger.debug('Pairing with invite code')
 
         const { vaultId, encryptionKey } = await pairActiveVault(
           requestData.inviteCode
@@ -464,14 +468,7 @@ export const handleRpcCommand = async (req) => {
 
         req.reply(JSON.stringify({ data: { vaultId, encryptionKey } }))
 
-        workletLogger.debug(
-          'Pairing successful with invite code:',
-          requestData.inviteCode,
-          'Vault ID:',
-          vaultId,
-          'Encryption Key:',
-          encryptionKey
-        )
+        workletLogger.debug('Pairing successful with vault ID:', vaultId)
       } catch (error) {
         workletLogger.error('Error pairing with invite code:', error)
 
