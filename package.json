@@ -1,6 +1,6 @@
 {
   "name": "@tetherto/pearpass-lib-vault-core",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "type": "module",
   "description": "A bare wrapper for vault management library",
   "main": "src/index.js",

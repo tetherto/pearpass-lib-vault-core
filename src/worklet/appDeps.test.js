@@ -8,7 +8,8 @@ jest.mock('bare-fs', () => ({
     writeFileSync: jest.fn(),
     renameSync: jest.fn(),
     promises: {
-      mkdir: jest.fn().mockResolvedValue(undefined)
+      mkdir: jest.fn().mockResolvedValue(undefined),
+      rm: jest.fn().mockResolvedValue(undefined)
     }
   }
 }))
@@ -26,6 +27,13 @@ jest.mock('bare-crypto', () => ({
     setAuthTag: jest.fn()
   })
 }))
+
+function mockMakeKeyPairFromSeed(seed) {
+  const publicKey = Buffer.alloc(mockSodium.crypto_sign_PUBLICKEYBYTES)
+  const secretKey = Buffer.alloc(mockSodium.crypto_sign_SECRETKEYBYTES)
+  mockSodium.crypto_sign_seed_keypair(publicKey, secretKey, seed)
+  return { publicKey, secretKey }
+}
 
 jest.mock('autopass', () => {
   const mockPair = {
@@ -69,6 +77,7 @@ jest.mock('autopass', () => {
     resume: jest.fn().mockResolvedValue(),
     add: jest.fn().mockResolvedValue(),
     remove: jest.fn().mockResolvedValue(),
+    removeWriter: jest.fn().mockResolvedValue(),
     get: jest.fn().mockResolvedValue({
       value: JSON.stringify({ id: 'vault-id' }),
       file: Buffer.from('test file content')
@@ -103,7 +112,17 @@ jest.mock('autopass', () => {
         find: jest.fn().mockReturnValue({
           async *[Symbol.asyncIterator]() {}
         })
+      },
+      local: {
+        keyPair: mockMakeKeyPairFromSeed(Buffer.alloc(32, 0x11))
       }
+    },
+    store: {
+      createKeyPair: jest.fn(async (name) => {
+        const seed = Buffer.alloc(32)
+        Buffer.from(`mock-store:${name}`).copy(seed)
+        return mockMakeKeyPairFromSeed(seed)
+      })
     },
     writerKey: Buffer.from(
       'aabbccddeeff0011223344556677889900aabbccddeeff00112233445566778899',
@@ -232,7 +251,11 @@ global.Bare = {
   platform: 'posix' // Unix-like for tests
 }
 
+import bareFs from 'bare-fs'
+
 import * as appDeps from './appDeps'
+
+const mockSodium = require('sodium-native')
 
 describe('appDeps module functions (excluding encryption)', () => {
   beforeEach(async () => {
@@ -394,6 +417,47 @@ describe('appDeps module functions (excluding encryption)', () => {
       )
     })
 
+    test('removeVault throws when vaultId is missing', async () => {
+      await expect(appDeps.removeVault()).rejects.toThrow('vaultId is required')
+    })
+
+    test('removeVault drops the master entry and wipes disk for an inactive vault', async () => {
+      bareFs.promises.rm.mockClear()
+
+      const mockInstance = appDeps.getVaultsInstance()
+      mockInstance.remove = jest.fn().mockResolvedValue()
+
+      await appDeps.removeVault('vault-x')
+
+      expect(mockInstance.remove).toHaveBeenCalledWith('vault/vault-x')
+      expect(bareFs.promises.rm).toHaveBeenCalledWith(
+        expect.stringContaining('vault/vault-x'),
+        { recursive: true, force: true }
+      )
+    })
+
+    test('removeVault closes the active instance first when it owns the vault', async () => {
+      bareFs.promises.rm.mockClear()
+
+      await appDeps.initActiveVaultInstance({
+        id: 'vault1',
+        encryptionKey: 'key'
+      })
+      expect(appDeps.getIsActiveVaultInitialized()).toBe(true)
+
+      const vaultsInstance = appDeps.getVaultsInstance()
+      vaultsInstance.remove = jest.fn().mockResolvedValue()
+
+      await appDeps.removeVault('vault1')
+
+      expect(appDeps.getIsActiveVaultInitialized()).toBe(false)
+      expect(vaultsInstance.remove).toHaveBeenCalledWith('vault/vault1')
+      expect(bareFs.promises.rm).toHaveBeenCalledWith(
+        expect.stringContaining('vault/vault1'),
+        { recursive: true, force: true }
+      )
+    })
+
     test('vaultRemove calls remove on activeVaultInstance', async () => {
       await appDeps.initActiveVaultInstance({
         id: 'vault1',
@@ -405,6 +469,29 @@ describe('appDeps module functions (excluding encryption)', () => {
 
       await appDeps.vaultRemove('key3')
       expect(mockInstance.remove).toHaveBeenCalledWith('key3')
+    })
+
+    test('signMessage uses the personal-identity keypair, not the autobase writer keypair', async () => {
+      // Regression guard: if this flips, signMessage is back to being a
+      // hypercore block-signature oracle.
+      const sodium = require('sodium-native')
+
+      const message = Buffer.from('arbitrary attacker-supplied bytes', 'utf-8')
+      const messageHex = message.toString('hex')
+
+      const signatureHex = await appDeps.signMessage(messageHex)
+      const signature = Buffer.from(signatureHex, 'hex')
+
+      const { publicKey: personalPub } = await appDeps.getPersonalKeyPair()
+      const writerPub = appDeps.getVaultsInstance().base.local.keyPair.publicKey
+
+      expect(Buffer.compare(personalPub, writerPub)).not.toBe(0)
+      expect(
+        sodium.crypto_sign_verify_detached(signature, message, personalPub)
+      ).toBe(true)
+      expect(
+        sodium.crypto_sign_verify_detached(signature, message, writerPub)
+      ).toBe(false)
     })
 
     test('activeVaultGet calls get on activeVaultInstance and returns result', async () => {

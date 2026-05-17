@@ -83,7 +83,9 @@ jest.mock('./appDeps', () => ({
   restartActiveVault: (...args) => mockRestartActiveVault(...args),
   setStoragePath: (...args) => mockSetStoragePath(...args),
   suspendAllInstances: (...args) => mockSuspendAllInstances(...args),
-  resumeAllInstances: (...args) => mockResumeAllInstances(...args)
+  resumeAllInstances: (...args) => mockResumeAllInstances(...args),
+  getVaultsInstance: () => null,
+  removeVault: jest.fn()
 }))
 
 jest.mock('sodium-native', () => {
@@ -100,6 +102,15 @@ jest.mock('sodium-native', () => {
     default: api
   }
 })
+
+jest.mock('./personalSwarm', () => ({
+  personalSwarmInit: jest.fn(),
+  personalSwarmClose: jest.fn(),
+  personalSwarmGetTopic: jest.fn(),
+  personalSwarmSend: jest.fn(),
+  personalSwarmOnEnvelope: jest.fn(),
+  isPersonalSwarmRunning: jest.fn(() => false)
+}))
 
 jest.mock('./utils/parseRequestData', () => ({
   parseRequestData: jest.fn((data) => data) // default: passthrough

@@ -24,6 +24,7 @@ import {
   getIsActiveVaultInitialized,
   getIsEncryptionInitialized,
   getIsVaultsInitialized,
+  getVaultsInstance,
   initActiveVaultInstance,
   initListener,
   resumeAllInstances,
@@ -39,6 +40,11 @@ import {
   setStoragePath,
   vaultRemove,
   vaultsAdd,
+  vaultsRemove,
+  vaultsFind,
+  signMessage,
+  verifySignature,
+  removeVault,
   vaultsGet,
   masterVaultInit,
   vaultsList,
@@ -63,6 +69,13 @@ import { faviconManager } from './faviconManager'
 import { getDecryptionKey } from './getDecryptionKey'
 import { hashPassword } from './hashPassword'
 import { masterPasswordManager } from './masterPasswordManager'
+import {
+  personalSwarmInit,
+  personalSwarmClose,
+  personalSwarmGetTopic,
+  personalSwarmSend,
+  personalSwarmOnEnvelope
+} from './personalSwarm'
 import { withMirrorValidation } from '../middleware/validateMirrorKeyViaDHT.js'
 import { destroySharedDHT } from './utils/dht'
 import { receiveFileStream } from '../utils/recieveFileStream.js'
@@ -73,6 +86,32 @@ import { workletLogger } from './utils/workletLogger'
 import { validateInviteCode } from '../utils/validateInviteCode.js'
 
 let rpc = null
+
+let masterUpdateHandler = null
+let masterUpdateBoundInstance = null
+
+// Idempotent. Tracks the bound instance so a re-init unbinds from the
+// previous one instead of no-op'ing on the new one.
+const wireMasterUpdateListener = () => {
+  const inst = getVaultsInstance()
+  if (!inst) return
+  if (masterUpdateHandler && masterUpdateBoundInstance) {
+    masterUpdateBoundInstance.removeListener('update', masterUpdateHandler)
+  }
+  masterUpdateHandler = () => {
+    rpc.request(API.ON_MASTER_UPDATE).send()
+  }
+  masterUpdateBoundInstance = inst
+  inst.on('update', masterUpdateHandler)
+}
+
+const wirePersonalSwarmEnvelopeListener = () => {
+  personalSwarmOnEnvelope((envelope) => {
+    if (!rpc) return
+    const req = rpc.request(API.ON_PERSONAL_SWARM_ENVELOPE)
+    req.send(JSON.stringify({ envelope }))
+  })
+}
 
 export const handleRpcCommand = async (req) => {
   const commandName = API_BY_VALUE[req.command]
@@ -154,6 +193,8 @@ export const handleRpcCommand = async (req) => {
           hashedPassword: requestData.hashedPassword
         })
 
+        wireMasterUpdateListener()
+
         req.reply(JSON.stringify({ success: true, res }))
       } catch (error) {
         req.reply(
@@ -209,6 +250,80 @@ export const handleRpcCommand = async (req) => {
         req.reply(
           JSON.stringify({
             error: `Error adding vault: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case API.REMOVE_VAULT:
+      try {
+        await removeVault(requestData?.vaultId)
+
+        req.reply(JSON.stringify({ success: true }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error removing vault: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case API.PERSONAL_SWARM_INIT:
+      try {
+        const result = await personalSwarmInit()
+        req.reply(JSON.stringify({ data: result }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error starting personal swarm: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case API.PERSONAL_SWARM_CLOSE:
+      try {
+        await personalSwarmClose()
+        req.reply(JSON.stringify({ data: true }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error closing personal swarm: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case API.PERSONAL_SWARM_GET_TOPIC:
+      try {
+        const topic = personalSwarmGetTopic()
+        req.reply(JSON.stringify({ data: topic }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error reading personal swarm topic: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case API.PERSONAL_SWARM_SEND:
+      try {
+        const sendResult = await personalSwarmSend(
+          requestData?.targetTopic,
+          requestData?.envelope
+        )
+        req.reply(JSON.stringify({ data: sendResult }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `send-threw: ${error?.message ?? error}`
           })
         )
       }
@@ -286,6 +401,60 @@ export const handleRpcCommand = async (req) => {
           JSON.stringify({
             error: `Error listing vaults: ${error}`
           })
+        )
+      }
+
+      break
+
+    case API.MASTER_VAULT_REMOVE:
+      try {
+        await vaultsRemove(requestData?.key)
+        req.reply(JSON.stringify({ data: true }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error removing from master vault: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case API.MASTER_VAULT_FIND:
+      try {
+        const found = await vaultsFind(requestData)
+        req.reply(JSON.stringify({ data: found }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error finding in master vault: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case API.SIGN_MESSAGE:
+      try {
+        const signature = await signMessage(requestData?.message)
+        req.reply(JSON.stringify({ data: signature }))
+      } catch (error) {
+        req.reply(JSON.stringify({ error: `Error signing message: ${error}` }))
+      }
+
+      break
+
+    case API.VERIFY_SIGNATURE:
+      try {
+        const ok = verifySignature(
+          requestData?.message,
+          requestData?.signature,
+          requestData?.publicKey
+        )
+        req.reply(JSON.stringify({ data: ok }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({ error: `Error verifying signature: ${error}` })
         )
       }
 
@@ -548,6 +717,8 @@ export const handleRpcCommand = async (req) => {
           passwordBase64: requestData.password
         })
 
+        wireMasterUpdateListener()
+
         req.reply(JSON.stringify({ data }))
       } catch (error) {
         req.reply(
@@ -564,6 +735,8 @@ export const handleRpcCommand = async (req) => {
         const data = await masterPasswordManager.initWithPassword({
           passwordBase64: requestData.password
         })
+
+        wireMasterUpdateListener()
 
         req.reply(JSON.stringify({ data }))
       } catch (error) {
@@ -601,6 +774,8 @@ export const handleRpcCommand = async (req) => {
           nonce: requestData.nonce,
           hashedPassword: requestData.hashedPassword
         })
+
+        wireMasterUpdateListener()
 
         req.reply(JSON.stringify({ data }))
       } catch (error) {
@@ -850,6 +1025,7 @@ export const handleRpcCommand = async (req) => {
 
     case API.CLOSE_ALL_INSTANCES:
       try {
+        await personalSwarmClose()
         await closeAllInstances()
         await destroySharedDHT()
 
@@ -1136,6 +1312,7 @@ export const setupIPC = () => {
         try {
           workletLogger.log('Suspendify suspending instances')
           await suspendAllInstances()
+          await personalSwarmClose()
           workletLogger.log('Instances suspended successfully')
 
           if (sus.interrupted) {
@@ -1160,6 +1337,20 @@ export const setupIPC = () => {
         try {
           workletLogger.log('Suspendify resuming instances')
           await resumeAllInstances()
+          try {
+            await personalSwarmInit()
+          } catch (err) {
+            // Surface to upstream so the device doesn't silently look offline.
+            workletLogger.error('personalSwarmInit on resume failed', { err })
+            try {
+              rpc?.request(API.ON_PERSONAL_SWARM_ERROR).send(
+                JSON.stringify({
+                  reason: 'resume-init-failed',
+                  message: err?.message ?? String(err)
+                })
+              )
+            } catch {}
+          }
           workletLogger.log('Instances resumed successfully')
         } catch (error) {
           workletLogger.error('Caught resume error:', error)
@@ -1202,5 +1393,6 @@ export const createRPC = (ipc) => {
       )
     }
   })
+  wirePersonalSwarmEnvelopeListener()
   return rpc
 }

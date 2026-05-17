@@ -1,5 +1,6 @@
 import EventEmitter from 'events'
 
+import b4a from 'b4a'
 import RPC from 'bare-rpc'
 import FramedStream from 'framed-stream'
 
@@ -39,6 +40,51 @@ export class PearpassVaultClient extends EventEmitter {
       switch (req.command) {
         case API.ON_UPDATE:
           this.emit('update')
+
+          break
+
+        case API.ON_MASTER_UPDATE:
+          this.emit('master-update')
+
+          break
+
+        case API.ON_PERSONAL_SWARM_ENVELOPE:
+          try {
+            const raw = req.data
+            const text =
+              typeof raw === 'string'
+                ? raw
+                : raw
+                  ? b4a.toString(raw, 'utf8')
+                  : '{}'
+            const parsed = JSON.parse(text)
+            this.emit('personal-swarm-envelope', parsed)
+          } catch (err) {
+            this._logger.error(
+              'Failed to parse personal-swarm-envelope payload',
+              err
+            )
+          }
+
+          break
+
+        case API.ON_PERSONAL_SWARM_ERROR:
+          try {
+            const raw = req.data
+            const text =
+              typeof raw === 'string'
+                ? raw
+                : raw
+                  ? b4a.toString(raw, 'utf8')
+                  : '{}'
+            const parsed = JSON.parse(text)
+            this.emit('personal-swarm-error', parsed)
+          } catch (err) {
+            this._logger.error(
+              'Failed to parse personal-swarm-error payload',
+              err
+            )
+          }
 
           break
 
@@ -190,6 +236,69 @@ export class PearpassVaultClient extends EventEmitter {
     return this._handleRequest({
       command: API.MASTER_VAULT_ADD,
       data: { key, data }
+    })
+  }
+
+  /**
+   * @param {string} key
+   * @returns {Promise<void>}
+   */
+  async vaultsRemove(key) {
+    return this._handleRequest({
+      command: API.MASTER_VAULT_REMOVE,
+      data: { key }
+    })
+  }
+
+  /**
+   * @param {{ gte?: { key: string }, lt?: { key: string } }} options
+   * @returns {Promise<Array<{ key: string, value: any }>>}
+   */
+  async vaultsFind(options = {}) {
+    return this._handleRequest({
+      command: API.MASTER_VAULT_FIND,
+      data: options
+    })
+  }
+
+  /**
+   * @param {string} messageHex
+   * @returns {Promise<string>} hex signature
+   */
+  async signMessage(messageHex) {
+    return this._handleRequest({
+      command: API.SIGN_MESSAGE,
+      data: { message: messageHex }
+    })
+  }
+
+  /**
+   * @param {string} messageHex
+   * @param {string} signatureHex
+   * @param {string} publicKeyHex
+   * @returns {Promise<boolean>}
+   */
+  async verifySignature(messageHex, signatureHex, publicKeyHex) {
+    return this._handleRequest({
+      command: API.VERIFY_SIGNATURE,
+      data: {
+        message: messageHex,
+        signature: signatureHex,
+        publicKey: publicKeyHex
+      }
+    })
+  }
+
+  /**
+   * Removes a vault from this device: closes the active instance if owned,
+   * drops the master entry, and wipes the autobase directory.
+   * @param {string} vaultId - The id of the vault to remove.
+   * @returns {Promise<void>}
+   */
+  async removeVault(vaultId) {
+    return this._handleRequest({
+      command: API.REMOVE_VAULT,
+      data: { vaultId }
     })
   }
 
@@ -411,6 +520,39 @@ export class PearpassVaultClient extends EventEmitter {
   async activeVaultGetWriterKey() {
     return this._handleRequest({
       command: API.ACTIVE_VAULT_GET_WRITER_KEY
+    })
+  }
+
+  /** @returns {Promise<{ topic: string }>} */
+  async personalSwarmInit() {
+    return this._handleRequest({
+      command: API.PERSONAL_SWARM_INIT
+    })
+  }
+
+  /** @returns {Promise<void>} */
+  async personalSwarmClose() {
+    return this._handleRequest({
+      command: API.PERSONAL_SWARM_CLOSE
+    })
+  }
+
+  /** @returns {Promise<string | null>} */
+  async personalSwarmGetTopic() {
+    return this._handleRequest({
+      command: API.PERSONAL_SWARM_GET_TOPIC
+    })
+  }
+
+  /**
+   * @param {string} targetTopic hex
+   * @param {string} envelope hex
+   * @returns {Promise<{ ok: boolean, reason?: string }>}
+   */
+  async personalSwarmSend(targetTopic, envelope) {
+    return this._handleRequest({
+      command: API.PERSONAL_SWARM_SEND,
+      data: { targetTopic, envelope }
     })
   }
 

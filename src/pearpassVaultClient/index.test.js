@@ -34,6 +34,7 @@ jest.mock('../worklet/api', () => ({
     MASTER_VAULT_CLOSE: 'MASTER_VAULT_CLOSE',
     MASTER_VAULT_ADD: 'MASTER_VAULT_ADD',
     MASTER_VAULT_LIST: 'MASTER_VAULT_LIST',
+    REMOVE_VAULT: 'REMOVE_VAULT',
     ACTIVE_VAULT_INIT: 'ACTIVE_VAULT_INIT',
     ACTIVE_VAULT_GET_STATUS: 'ACTIVE_VAULT_GET_STATUS',
     ACTIVE_VAULT_CLOSE: 'ACTIVE_VAULT_CLOSE',
@@ -82,6 +83,7 @@ jest.mock('../worklet/api', () => ({
     MASTER_VAULT_CLOSE: 'MASTER_VAULT_CLOSE',
     MASTER_VAULT_ADD: 'MASTER_VAULT_ADD',
     MASTER_VAULT_LIST: 'MASTER_VAULT_LIST',
+    REMOVE_VAULT: 'REMOVE_VAULT',
     ACTIVE_VAULT_INIT: 'ACTIVE_VAULT_INIT',
     ACTIVE_VAULT_GET_STATUS: 'ACTIVE_VAULT_GET_STATUS',
     ACTIVE_VAULT_CLOSE: 'ACTIVE_VAULT_CLOSE',
@@ -170,6 +172,7 @@ describe('PearpassVaultClient', () => {
     await expect(client.vaultsClose()).resolves.toBe('mockData')
     await expect(client.vaultsAdd('vaultKey', {})).resolves.toBe('mockData')
     await expect(client.vaultsList('filter')).resolves.toBe('mockData')
+    await expect(client.removeVault('vaultId')).resolves.toBe('mockData')
     await expect(
       client.activeVaultInit({ id: 'id', encryptionKey: 'ekey' })
     ).resolves.toBe('mockData')

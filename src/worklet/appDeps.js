@@ -36,6 +36,10 @@ let isEncryptionInitialized = false
 let vaultsInstance
 let isVaultsInitialized = false
 
+// Separate from the writer keypair so signMessage can't forge hypercore
+// block signatures. Derived from the store so it persists across restarts.
+let personalKeyPair = null
+
 let activeVaultInstance
 let isActiveVaultInitialized = false
 
@@ -339,6 +343,13 @@ export const initInstanceWithNewBlindEncryption = async ({
   }
 }
 
+// Serialise concurrent activeVaultInit calls. Without this, two callers
+// targeting the same vault (e.g. the desktop renderer and the extension both
+// auto-switching after a delete) race on the Corestore lock and the loser
+// gets "File descriptor could not be locked".
+/** @type {Promise<Autopass> | null} */
+let activeVaultInitInFlight = null
+
 /**
  * @param {Object} params
  * @param {string} params.id
@@ -346,30 +357,61 @@ export const initInstanceWithNewBlindEncryption = async ({
  * @returns {Promise<Autopass>}
  */
 export const initActiveVaultInstance = async ({ id, encryptionKey }) => {
-  isActiveVaultInitialized = false
-
-  const hashedPassword = await getHashedPassword()
-
-  activeVaultInstance = await initInstance({
-    path: `vault/${id}`,
-    encryptionKey,
-    hashedPassword
-  })
-
-  // Force linearization and flush to disk so readOnly clients (autofill) can read the data
-  await activeVaultInstance.base.update()
-
-  isActiveVaultInitialized = true
-
-  // cache last init params for restart
-  lastActiveVaultId = id
-  lastActiveVaultEncryptionKey = encryptionKey
-
-  if (lastOnUpdateCallback) {
-    lastOnUpdateCallback()
+  if (
+    isActiveVaultInitialized &&
+    lastActiveVaultId === id &&
+    activeVaultInstance
+  ) {
+    return activeVaultInstance
   }
 
-  return activeVaultInstance
+  if (activeVaultInitInFlight) {
+    await activeVaultInitInFlight.catch(() => {})
+    if (
+      isActiveVaultInitialized &&
+      lastActiveVaultId === id &&
+      activeVaultInstance
+    ) {
+      return activeVaultInstance
+    }
+  }
+
+  activeVaultInitInFlight = (async () => {
+    if (activeVaultInstance) {
+      await closeActiveVaultInstance()
+    }
+
+    isActiveVaultInitialized = false
+
+    const hashedPassword = await getHashedPassword()
+
+    activeVaultInstance = await initInstance({
+      path: `vault/${id}`,
+      encryptionKey,
+      hashedPassword
+    })
+
+    // Force linearization and flush to disk so readOnly clients (autofill) can read the data
+    await activeVaultInstance.base.update()
+
+    isActiveVaultInitialized = true
+
+    // cache last init params for restart
+    lastActiveVaultId = id
+    lastActiveVaultEncryptionKey = encryptionKey
+
+    if (lastOnUpdateCallback) {
+      lastOnUpdateCallback()
+    }
+
+    return activeVaultInstance
+  })()
+
+  try {
+    return await activeVaultInitInFlight
+  } finally {
+    activeVaultInitInFlight = null
+  }
 }
 
 /**
@@ -524,6 +566,21 @@ export const closeVaultsInstance = async () => {
 
   vaultsInstance = null
   isVaultsInitialized = false
+  personalKeyPair = null
+}
+
+/**
+ * @returns {Promise<{ publicKey: Buffer, secretKey: Buffer }>}
+ */
+export const getPersonalKeyPair = async () => {
+  if (personalKeyPair) return personalKeyPair
+  if (!isVaultsInitialized) {
+    throw new Error('getPersonalKeyPair: master vault not initialised')
+  }
+  personalKeyPair = await vaultsInstance.store.createKeyPair(
+    'pearpass-personal-id'
+  )
+  return personalKeyPair
 }
 
 /**
@@ -581,6 +638,133 @@ export const vaultsAdd = async (key, data) => {
   }
 
   await vaultsInstance.add(key, JSON.stringify(data))
+}
+
+/**
+ * @param {string} key
+ * @returns {Promise<void>}
+ */
+export const vaultsRemove = async (key) => {
+  if (!isVaultsInitialized) {
+    throw new Error('Vaults not initialised')
+  }
+  if (!key) throw new Error('vaultsRemove: key is required')
+
+  await vaultsInstance.remove(key)
+}
+
+/**
+ * @param {string} messageHex
+ * @returns {Promise<string>} hex signature
+ */
+export const signMessage = async (messageHex) => {
+  if (!isVaultsInitialized) {
+    throw new Error('Vaults not initialised')
+  }
+  const { secretKey } = await getPersonalKeyPair()
+  const message = b4a.from(messageHex, 'hex')
+  const signature = b4a.alloc(sodium.crypto_sign_BYTES)
+  sodium.crypto_sign_detached(signature, message, secretKey)
+  return b4a.toString(signature, 'hex')
+}
+
+/**
+ * @param {string} messageHex
+ * @param {string} signatureHex
+ * @param {string} publicKeyHex
+ * @returns {boolean}
+ */
+export const verifySignature = (messageHex, signatureHex, publicKeyHex) => {
+  try {
+    const message = b4a.from(messageHex, 'hex')
+    const signature = b4a.from(signatureHex, 'hex')
+    const publicKey = b4a.from(publicKeyHex, 'hex')
+    return sodium.crypto_sign_verify_detached(signature, message, publicKey)
+  } catch {
+    return false
+  }
+}
+
+/**
+ * @param {{ gte?: { key: string }, lt?: { key: string } }} options
+ * @returns {Promise<Array<{ key: string, value: any }>>}
+ */
+export const vaultsFind = async (options = {}) => {
+  if (!isVaultsInitialized) {
+    throw new Error('Vaults not initialised')
+  }
+
+  const stream = await vaultsInstance.list()
+  const gteKey = options?.gte?.key
+  const ltKey = options?.lt?.key
+
+  return new Promise((resolve, reject) => {
+    const results = []
+    stream.on('data', ({ key, value }) => {
+      if (!value) return
+      if (gteKey && key < gteKey) return
+      if (ltKey && key >= ltKey) return
+      try {
+        const parsedValue = JSON.parse(value)
+        results.push({ key, value: parsedValue })
+      } catch (err) {
+        workletLogger.error('vaultsFind: failed to parse record', { key, err })
+      }
+    })
+    stream.on('end', () => resolve(results))
+    stream.on('error', (err) => reject(err))
+  })
+}
+
+/**
+ * Removes a vault from this device: closes the active instance if it owns the
+ * vault, drops the master entry, and wipes the on-disk autobase directory.
+ * Departure announcements to peers are handled by the lib-vault leave-vault
+ * action (personal-swarm) before this is called.
+ *
+ * @param {string} vaultId
+ * @returns {Promise<void>}
+ */
+export const removeVault = async (vaultId) => {
+  if (!vaultId) {
+    throw new Error('vaultId is required')
+  }
+  if (!isVaultsInitialized) {
+    throw new Error('Vaults not initialised')
+  }
+
+  if (lastActiveVaultId === vaultId) {
+    if (isActiveVaultInitialized) {
+      // Close before wipe — Windows file locks would otherwise block rm.
+      await closeActiveVaultInstance({ clearRestartCache: true })
+    } else {
+      clearRestartCache()
+    }
+  }
+
+  // Wipe disk first, with retries. Only drop the master entry once the files
+  // are gone, so a partial failure leaves the vault re-openable. The backoff
+  // is sized for Windows: handle release after close() can take 100+ ms,
+  // longer with Defender or indexer activity touching the autobase dir.
+  const fullPath = buildPath(`vault/${vaultId}`)
+  const RETRY_DELAYS_MS = [250, 500, 1000]
+  let lastErr
+  for (let attempt = 0; attempt < RETRY_DELAYS_MS.length + 1; attempt++) {
+    try {
+      await fs.promises.rm(fullPath, { recursive: true, force: true })
+      lastErr = null
+      break
+    } catch (err) {
+      lastErr = err
+      const delay = RETRY_DELAYS_MS[attempt]
+      if (delay !== undefined) {
+        await new Promise((resolve) => setTimeout(resolve, delay))
+      }
+    }
+  }
+  if (lastErr) throw lastErr
+
+  await vaultsInstance.remove(`vault/${vaultId}`)
 }
 
 /**
