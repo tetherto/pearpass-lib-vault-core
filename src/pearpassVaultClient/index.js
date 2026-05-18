@@ -836,7 +836,10 @@ export class PearpassVaultClient extends EventEmitter {
 
       this._handleError(parsedResponse)
 
-      this._logger.log('File added', parsedResponse)
+      this._logger.log('File added', {
+        success: parsedResponse.success,
+        metaData: { key: parsedResponse.metaData?.key }
+      })
     } catch (error) {
       this._logger.error('Error adding file to active vault:', error)
       throw error
