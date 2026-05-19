@@ -74,7 +74,8 @@ export const API = {
   MASTER_VAULT_FIND: 72,
   SIGN_MESSAGE: 73,
   VERIFY_SIGNATURE: 74,
-  ON_PERSONAL_SWARM_ERROR: 75
+  ON_PERSONAL_SWARM_ERROR: 75,
+  FIND_OTP_DUPLICATES: 76
 }
 
 export const API_BY_VALUE = Object.entries(API).reduce((acc, [key, value]) => {

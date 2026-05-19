@@ -117,3 +117,40 @@ export const generateHOTP = (otpConfig) => {
 
   return { code }
 }
+
+/**
+ * Normalizes a Base32 OTP secret for comparison: strips whitespace and
+ * dashes commonly used to format secrets in 4-char groups and uppercases the
+ * result. Base32 is case-insensitive but the spec uses uppercase.
+ * @param {unknown} value
+ * @returns {string}
+ */
+export const normalizeOtpSecret = (value) =>
+  typeof value === 'string' ? value.replace(/[\s-]/g, '').toUpperCase() : ''
+
+/**
+ * Returns the subset of `records` whose stored `data.otp.secret` matches
+ * the given target secret (after normalization).
+ *
+ * @param {string} targetSecret - raw or formatted Base32 secret
+ * @param {Array<{ id?: string, data?: { otp?: { secret?: string }, title?: string } }>} records
+ * @param {{ excludeRecordId?: string }} [options]
+ * @returns {Array<{ id: string, title: string }>}
+ */
+export const filterDuplicateRecords = (targetSecret, records, options = {}) => {
+  const target = normalizeOtpSecret(targetSecret)
+  if (!target || !Array.isArray(records) || records.length === 0) return []
+
+  const excludeId = options.excludeRecordId
+  const matches = []
+  for (const record of records) {
+    if (!record) continue
+    if (excludeId && record.id === excludeId) continue
+    if (normalizeOtpSecret(record?.data?.otp?.secret) !== target) continue
+    matches.push({
+      id: record.id,
+      title: typeof record?.data?.title === 'string' ? record.data.title : ''
+    })
+  }
+  return matches
+}

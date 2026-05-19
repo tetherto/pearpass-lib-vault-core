@@ -8,7 +8,12 @@ import Corestore from 'corestore'
 import sodium from 'sodium-native'
 
 import { getForbiddenRoots } from './getForbiddenRoots'
-import { generateTOTP, generateHOTP, parseOtpInput } from './otp/index'
+import {
+  generateTOTP,
+  generateHOTP,
+  parseOtpInput,
+  filterDuplicateRecords
+} from './otp/index'
 import { PearPassPairer } from './pearpassPairer'
 import { RateLimiter } from './rateLimiter'
 import { workletLogger } from './utils/workletLogger'
@@ -1519,4 +1524,23 @@ export const removeOtpFromRecord = async (recordId) => {
 
   delete record.data.otp
   await activeVaultAdd(`record/${recordId}`, record)
+}
+
+/**
+ * Finds records whose stored OTP secret matches the given one.
+ * @param {{ secret?: string, excludeRecordId?: string }} params
+ * @returns {Promise<Array<{ id: string, title: string }>>}
+ */
+export const findOtpDuplicates = async ({ secret, excludeRecordId } = {}) => {
+  if (!isActiveVaultInitialized) {
+    throw new Error('Vault not initialised')
+  }
+
+  if (!secret) return []
+
+  const records = await collectValuesByFilter(activeVaultInstance, (key) =>
+    key?.startsWith('record/')
+  )
+
+  return filterDuplicateRecords(secret, records, { excludeRecordId })
 }

@@ -1001,6 +1001,18 @@ export class PearpassVaultClient extends EventEmitter {
   }
 
   /**
+   * Finds records that already store the given OTP secret.
+   * @param {{ secret?: string, excludeRecordId?: string }} params
+   * @returns {Promise<Array<{ id: string, title: string }>>}
+   */
+  async findOtpDuplicates(params) {
+    return this._handleRequest({
+      command: API.FIND_OTP_DUPLICATES,
+      data: params
+    })
+  }
+
+  /**
    * Adds an OTP configuration to a record.
    * @param {string} recordId
    * @param {string} otpInput - otpauth:// URI or raw Base32 secret

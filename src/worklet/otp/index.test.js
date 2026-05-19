@@ -4,7 +4,9 @@ import {
   parseOtpInput,
   getTimeRemaining,
   generateTOTP,
-  generateHOTP
+  generateHOTP,
+  normalizeOtpSecret,
+  filterDuplicateRecords
 } from './index'
 
 describe('isOtpauthUri', () => {
@@ -175,5 +177,96 @@ describe('generateHOTP', () => {
     // with the well-known test vector secret
     expect(result1.code).toBeDefined()
     expect(result2.code).toBeDefined()
+  })
+})
+
+describe('normalizeOtpSecret', () => {
+  it('strips whitespace and dashes and uppercases', () => {
+    expect(normalizeOtpSecret('jbsw y3dp-ehpk 3pxp')).toBe('JBSWY3DPEHPK3PXP')
+    expect(normalizeOtpSecret('JBSWY3DPEHPK3PXP')).toBe('JBSWY3DPEHPK3PXP')
+  })
+
+  it('returns empty string for non-string/empty input', () => {
+    expect(normalizeOtpSecret(undefined)).toBe('')
+    expect(normalizeOtpSecret(null)).toBe('')
+    expect(normalizeOtpSecret('')).toBe('')
+    expect(normalizeOtpSecret(123)).toBe('')
+  })
+})
+
+describe('filterDuplicateRecords', () => {
+  const record = (id, secret, title = '') => ({
+    id,
+    data: { otp: { secret }, title }
+  })
+
+  it('returns [] when target secret is empty or records list is empty', () => {
+    expect(
+      filterDuplicateRecords('', [record('a', 'JBSWY3DPEHPK3PXP')])
+    ).toEqual([])
+    expect(filterDuplicateRecords('JBSWY3DPEHPK3PXP', [])).toEqual([])
+    expect(filterDuplicateRecords('JBSWY3DPEHPK3PXP', null)).toEqual([])
+  })
+
+  it('matches by normalized secret regardless of formatting', () => {
+    const recs = [
+      record('a', 'JBSW Y3DP EHPK 3PXP', 'GitHub'),
+      record('b', 'OTHERSECRETXXXXX', 'Other')
+    ]
+    expect(filterDuplicateRecords('jbsw-y3dp-ehpk-3pxp', recs)).toEqual([
+      { id: 'a', title: 'GitHub' }
+    ])
+  })
+
+  it('returns only id and title (never the secret)', () => {
+    const recs = [record('a', 'JBSWY3DPEHPK3PXP', 'GitHub')]
+    const result = filterDuplicateRecords('JBSWY3DPEHPK3PXP', recs)
+    expect(result).toEqual([{ id: 'a', title: 'GitHub' }])
+    expect(result[0]).not.toHaveProperty('data')
+    expect(result[0]).not.toHaveProperty('secret')
+  })
+
+  it('skips records without an OTP secret', () => {
+    const recs = [
+      { id: 'a', data: {} },
+      { id: 'b', data: { otp: {} } },
+      { id: 'c' },
+      null,
+      record('d', 'JBSWY3DPEHPK3PXP', 'GitHub')
+    ]
+    expect(filterDuplicateRecords('JBSWY3DPEHPK3PXP', recs)).toEqual([
+      { id: 'd', title: 'GitHub' }
+    ])
+  })
+
+  it('excludes a record by id when excludeRecordId is provided', () => {
+    const recs = [
+      record('a', 'JBSWY3DPEHPK3PXP', 'A'),
+      record('b', 'JBSWY3DPEHPK3PXP', 'B')
+    ]
+    expect(
+      filterDuplicateRecords('JBSWY3DPEHPK3PXP', recs, {
+        excludeRecordId: 'a'
+      })
+    ).toEqual([{ id: 'b', title: 'B' }])
+  })
+
+  it('returns all matches when multiple records share the secret', () => {
+    const recs = [
+      record('a', 'JBSWY3DPEHPK3PXP', 'A'),
+      record('b', 'OTHERSECRETXXXXX', 'B'),
+      record('c', 'JBSWY3DPEHPK3PXP', 'C')
+    ]
+    expect(filterDuplicateRecords('JBSWY3DPEHPK3PXP', recs)).toEqual([
+      { id: 'a', title: 'A' },
+      { id: 'c', title: 'C' }
+    ])
+  })
+
+  it('falls back to empty title when record has none', () => {
+    const recs = [{ id: 'a', data: { otp: { secret: 'JBSWY3DPEHPK3PXP' } } }]
+    expect(filterDuplicateRecords('JBSWY3DPEHPK3PXP', recs)).toEqual([
+      { id: 'a', title: '' }
+    ])
   })
 })
