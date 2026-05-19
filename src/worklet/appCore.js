@@ -58,7 +58,8 @@ import {
   generateOtpCodesByIds,
   generateHotpNext,
   addOtpToRecord,
-  removeOtpFromRecord
+  removeOtpFromRecord,
+  findOtpDuplicates
 } from './appDeps'
 import { decryptBitwardenExport } from './decryptBitwardenExport'
 import { decryptVaultKey } from './decryptVaultKey'
@@ -1216,6 +1217,21 @@ export const handleRpcCommand = async (req) => {
         req.reply(
           JSON.stringify({
             error: `Error removing OTP from record: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case API.FIND_OTP_DUPLICATES:
+      try {
+        const matches = await findOtpDuplicates(requestData)
+
+        req.reply(JSON.stringify({ data: matches }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error finding OTP duplicates: ${error}`
           })
         )
       }
