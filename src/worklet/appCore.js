@@ -342,9 +342,9 @@ export const handleRpcCommand = async (req) => {
         const { key, name } = metaData ?? {}
         await activeVaultAdd(key, {}, buffer, name)
 
-        workletLogger.log({
-          stream: `Received stream data of size: ${buffer.length}`,
-          data: JSON.stringify(metaData)
+        workletLogger.log('Received file stream data', {
+          size: buffer.length,
+          key: metaData?.key
         })
 
         req.reply(JSON.stringify({ success: true, metaData }))

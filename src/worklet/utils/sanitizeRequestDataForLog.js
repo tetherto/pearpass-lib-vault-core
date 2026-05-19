@@ -21,7 +21,7 @@ const redactKeyedPayload = (requestData) => {
   const data = requestData.data
   if (!data || typeof data !== 'object') return requestData
 
-  if (requestData.key.startsWith('vault/')) {
+  if (requestData.key === 'vault' || requestData.key.startsWith('vault/')) {
     if (data.name === undefined) return requestData
     return {
       ...requestData,
