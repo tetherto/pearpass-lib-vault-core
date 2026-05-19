@@ -22,7 +22,7 @@ const getFromCache = async ({ hostname, cacheKey, isVaultReady }) => {
   try {
     const cachedBuffer = await activeVaultGetFile(cacheKey)
     if (cachedBuffer) {
-      workletLogger.log('Favicon cache hit:', hostname)
+      workletLogger.log('Favicon cache hit')
       const base64 = Buffer.from(cachedBuffer).toString('base64')
       return `data:image/png;base64,${base64}`
     }
@@ -46,7 +46,7 @@ const saveToCache = async ({ hostname, cacheKey, buffer, isVaultReady }) => {
   if (!isVaultReady) return
 
   try {
-    workletLogger.log('Storing favicon to cache:', hostname)
+    workletLogger.log('Storing favicon to cache')
     await activeVaultAdd(
       cacheKey,
       { created_at: Date.now() },
@@ -86,7 +86,7 @@ export const faviconManager = {
     try {
       const imgResponse = await fetch(faviconUrl)
 
-      workletLogger.log('Fetching favicon from network:', hostname)
+      workletLogger.log('Fetching favicon from network')
 
       if (imgResponse.ok) {
         const arrayBuffer = await imgResponse.arrayBuffer()
