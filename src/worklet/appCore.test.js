@@ -14,6 +14,7 @@ const mockInitActiveVaultInstance = jest.fn()
 const mockGetIsActiveVaultInitialized = jest.fn()
 const mockCloseActiveVaultInstance = jest.fn()
 const mockVaultRemove = jest.fn()
+const mockVaultRemoveWriter = jest.fn()
 const mockActiveVaultList = jest.fn()
 const mockActiveVaultFind = jest.fn()
 const mockActiveVaultGetWriterKey = jest.fn()
@@ -60,6 +61,7 @@ jest.mock('./appDeps', () => ({
   getIsActiveVaultInitialized: () => mockGetIsActiveVaultInitialized(),
   closeActiveVaultInstance: (...args) => mockCloseActiveVaultInstance(...args),
   vaultRemove: (...args) => mockVaultRemove(...args),
+  vaultRemoveWriter: (...args) => mockVaultRemoveWriter(...args),
   activeVaultList: (...args) => mockActiveVaultList(...args),
   activeVaultFind: (...args) => mockActiveVaultFind(...args),
   activeVaultGetWriterKey: (...args) => mockActiveVaultGetWriterKey(...args),
@@ -221,6 +223,7 @@ jest.mock('./api', () => {
     ACTIVE_VAULT_CLOSE: 13,
     ACTIVE_VAULT_ADD: 14,
     ACTIVE_VAULT_REMOVE: 15,
+    ACTIVE_VAULT_REMOVE_WRITER: 77,
     ACTIVE_VAULT_LIST: 16,
     ACTIVE_VAULT_GET: 17,
     ACTIVE_VAULT_CREATE_INVITE: 18,
@@ -726,6 +729,43 @@ describe('handleRpcCommand', () => {
 
     const payload = JSON.parse(reply.mock.calls[0][0])
     expect(payload).toEqual({ success: true })
+  })
+
+  test('ACTIVE_VAULT_REMOVE_WRITER: success path', async () => {
+    parseRequestData.mockReturnValue({ writerKey: 'abc123' })
+    mockVaultRemoveWriter.mockResolvedValue()
+
+    const reply = jest.fn()
+    const req = {
+      command: API.ACTIVE_VAULT_REMOVE_WRITER,
+      data: { writerKey: 'abc123' },
+      reply
+    }
+
+    await handleRpcCommand(req)
+
+    expect(mockVaultRemoveWriter).toHaveBeenCalledWith('abc123')
+    expect(reply).toHaveBeenCalledTimes(1)
+
+    const payload = JSON.parse(reply.mock.calls[0][0])
+    expect(payload).toEqual({ success: true })
+  })
+
+  test('ACTIVE_VAULT_REMOVE_WRITER: surfaces errors', async () => {
+    parseRequestData.mockReturnValue({ writerKey: 'abc123' })
+    mockVaultRemoveWriter.mockRejectedValue(new Error('boom'))
+
+    const reply = jest.fn()
+    const req = {
+      command: API.ACTIVE_VAULT_REMOVE_WRITER,
+      data: { writerKey: 'abc123' },
+      reply
+    }
+
+    await handleRpcCommand(req)
+
+    const payload = JSON.parse(reply.mock.calls[0][0])
+    expect(payload.error).toContain('Error removing writer from active vault')
   })
 
   test('ACTIVE_VAULT_LIST: success path', async () => {

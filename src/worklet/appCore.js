@@ -39,6 +39,7 @@ import {
   restartActiveVault,
   setStoragePath,
   vaultRemove,
+  vaultRemoveWriter,
   vaultsAdd,
   vaultsRemove,
   vaultsFind,
@@ -533,6 +534,21 @@ export const handleRpcCommand = async (req) => {
         req.reply(
           JSON.stringify({
             error: `Error removing record from active vault: ${error}`
+          })
+        )
+      }
+
+      break
+
+    case API.ACTIVE_VAULT_REMOVE_WRITER:
+      try {
+        await vaultRemoveWriter(requestData?.writerKey)
+
+        req.reply(JSON.stringify({ success: true }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error removing writer from active vault: ${error}`
           })
         )
       }

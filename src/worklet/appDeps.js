@@ -811,6 +811,23 @@ export const vaultRemove = async (key) => {
 }
 
 /**
+ * Drops a writer from the active vault's autobase. After replication, the
+ * removed writer can no longer append to the vault.
+ * @param {string} writerKey - hex writer key of the peer to remove
+ * @returns {Promise<void>}
+ */
+export const vaultRemoveWriter = async (writerKey) => {
+  if (!isActiveVaultInitialized) {
+    throw new Error('Vault not initialised')
+  }
+  if (!writerKey) {
+    throw new Error('writerKey is required')
+  }
+
+  await activeVaultInstance.removeWriter(writerKey)
+}
+
+/**
  * @returns {Promise<Array<any>>}
  */
 export const vaultsList = async (filterKey) => {

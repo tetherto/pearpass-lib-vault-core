@@ -483,6 +483,19 @@ export class PearpassVaultClient extends EventEmitter {
   }
 
   /**
+   * Drops a writer from the active vault's autobase. After replication,
+   * the removed writer can no longer append to the vault.
+   * @param {string} writerKey - hex writer key of the peer to remove.
+   * @returns {Promise<object>}
+   */
+  async activeVaultRemoveWriter(writerKey) {
+    return this._handleRequest({
+      command: API.ACTIVE_VAULT_REMOVE_WRITER,
+      data: { writerKey }
+    })
+  }
+
+  /**
    * Lists all records in the active vault.
    * @param {string} filterKey - The key to filter records by.
    * @returns {Promise<Array<Object>>} The list of records.

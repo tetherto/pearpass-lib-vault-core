@@ -40,6 +40,7 @@ jest.mock('../worklet/api', () => ({
     ACTIVE_VAULT_CLOSE: 'ACTIVE_VAULT_CLOSE',
     ACTIVE_VAULT_ADD: 'ACTIVE_VAULT_ADD',
     ACTIVE_VAULT_REMOVE: 'ACTIVE_VAULT_REMOVE',
+    ACTIVE_VAULT_REMOVE_WRITER: 'ACTIVE_VAULT_REMOVE_WRITER',
     ACTIVE_VAULT_LIST: 'ACTIVE_VAULT_LIST',
     ACTIVE_VAULT_FIND: 'ACTIVE_VAULT_FIND',
     ACTIVE_VAULT_GET_WRITER_KEY: 'ACTIVE_VAULT_GET_WRITER_KEY',
@@ -89,6 +90,7 @@ jest.mock('../worklet/api', () => ({
     ACTIVE_VAULT_CLOSE: 'ACTIVE_VAULT_CLOSE',
     ACTIVE_VAULT_ADD: 'ACTIVE_VAULT_ADD',
     ACTIVE_VAULT_REMOVE: 'ACTIVE_VAULT_REMOVE',
+    ACTIVE_VAULT_REMOVE_WRITER: 'ACTIVE_VAULT_REMOVE_WRITER',
     ACTIVE_VAULT_LIST: 'ACTIVE_VAULT_LIST',
     ACTIVE_VAULT_FIND: 'ACTIVE_VAULT_FIND',
     ACTIVE_VAULT_GET_WRITER_KEY: 'ACTIVE_VAULT_GET_WRITER_KEY',
@@ -180,6 +182,9 @@ describe('PearpassVaultClient', () => {
     await expect(client.activeVaultClose()).resolves.toBe('mockData')
     await expect(client.activeVaultAdd('key', {})).resolves.toBe('mockData')
     await expect(client.activeVaultRemove('key')).resolves.toBe('mockData')
+    await expect(client.activeVaultRemoveWriter('writer-key')).resolves.toBe(
+      'mockData'
+    )
     await expect(client.activeVaultList('filter')).resolves.toBe('mockData')
     await expect(
       client.activeVaultFind({ gte: { key: 'a' }, lt: { key: 'b' } })
