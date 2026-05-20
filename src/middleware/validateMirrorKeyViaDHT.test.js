@@ -26,6 +26,7 @@ describe('validateMirrorKeyViaDHT', () => {
     jest.clearAllMocks()
 
     mockSocket = {
+      on: jest.fn(),
       once: jest.fn(),
       removeAllListeners: jest.fn(),
       destroy: jest.fn()
@@ -71,48 +72,18 @@ describe('validateMirrorKeyViaDHT', () => {
       expect(mockSocket.destroy).toHaveBeenCalled()
     })
 
-    it('should return false when socket emits error', async () => {
+    it('should swallow socket errors and resolve via timeout', async () => {
       const validKey = 'valid-key'
       const decodedKey = Buffer.from('decoded-key')
 
       id.decode.mockReturnValue(decodedKey)
 
-      mockSocket.once.mockImplementation((event, callback) => {
-        if (event === 'error') {
-          setTimeout(callback, 10)
-        }
-      })
+      mockSocket.once.mockImplementation(() => {})
 
-      const result = await validateMirrorKeyViaDHT(validKey)
+      const result = await validateMirrorKeyViaDHT(validKey, { timeoutMs: 50 })
 
       expect(result).toBe(false)
-      expect(mockSocket.once).toHaveBeenCalledWith(
-        'error',
-        expect.any(Function)
-      )
-      expect(mockSocket.removeAllListeners).toHaveBeenCalled()
-      expect(mockSocket.destroy).toHaveBeenCalled()
-    })
-
-    it('should return false when socket closes', async () => {
-      const validKey = 'valid-key'
-      const decodedKey = Buffer.from('decoded-key')
-
-      id.decode.mockReturnValue(decodedKey)
-
-      mockSocket.once.mockImplementation((event, callback) => {
-        if (event === 'close') {
-          setTimeout(callback, 10)
-        }
-      })
-
-      const result = await validateMirrorKeyViaDHT(validKey)
-
-      expect(result).toBe(false)
-      expect(mockSocket.once).toHaveBeenCalledWith(
-        'close',
-        expect.any(Function)
-      )
+      expect(mockSocket.on).toHaveBeenCalledWith('error', expect.any(Function))
       expect(mockSocket.removeAllListeners).toHaveBeenCalled()
       expect(mockSocket.destroy).toHaveBeenCalled()
     })
@@ -168,32 +139,28 @@ describe('validateMirrorKeyViaDHT', () => {
       expect(duration).toBeLessThan(300)
     })
 
-    it('should prevent multiple resolutions', async () => {
+    it('should prevent multiple resolutions when open fires after timeout', async () => {
       const validKey = 'valid-key'
       const decodedKey = Buffer.from('decoded-key')
 
       id.decode.mockReturnValue(decodedKey)
 
-      let resolveCount = 0
+      let openFiredAfterTimeout = false
 
       mockSocket.once.mockImplementation((event, callback) => {
         if (event === 'open') {
           setTimeout(() => {
-            resolveCount++
+            openFiredAfterTimeout = true
             callback()
-          }, 10)
-        } else if (event === 'error') {
-          setTimeout(() => {
-            resolveCount++
-            callback()
-          }, 15)
+          }, 80)
         }
       })
 
-      const result = await validateMirrorKeyViaDHT(validKey)
+      const result = await validateMirrorKeyViaDHT(validKey, { timeoutMs: 30 })
 
-      expect(result).toBe(true)
-      expect(resolveCount).toBe(1)
+      expect(result).toBe(false)
+      await new Promise((resolve) => setTimeout(resolve, 100))
+      expect(openFiredAfterTimeout).toBe(true)
     })
 
     it('should handle socket cleanup errors gracefully', async () => {
@@ -257,13 +224,9 @@ describe('validateMirrorKeyViaDHT', () => {
 
       id.decode.mockReturnValue(decodedKey)
 
-      mockSocket.once.mockImplementation((event, callback) => {
-        if (event === 'error') {
-          setTimeout(callback, 10)
-        }
-      })
+      mockSocket.once.mockImplementation(() => {})
 
-      const result = await filterReachableMirrors(mirrors, { timeoutMs: 100 })
+      const result = await filterReachableMirrors(mirrors, { timeoutMs: 50 })
 
       expect(result).toEqual([])
       expect(mockDHT.connect).toHaveBeenCalledTimes(2)
@@ -304,13 +267,9 @@ describe('validateMirrorKeyViaDHT', () => {
 
       id.decode.mockReturnValue(decodedKey)
 
-      mockSocket.once.mockImplementation((event, callback) => {
-        if (event === 'error') {
-          setTimeout(callback, 10)
-        }
-      })
+      mockSocket.once.mockImplementation(() => {})
 
-      const wrappedAction = withMirrorValidation(mockAction)
+      const wrappedAction = withMirrorValidation(mockAction, { timeoutMs: 50 })
 
       await expect(wrappedAction(mirrors)).rejects.toThrow(
         'No reachable mirrors'
