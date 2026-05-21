@@ -76,7 +76,8 @@ export const API = {
   VERIFY_SIGNATURE: 74,
   ON_PERSONAL_SWARM_ERROR: 75,
   FIND_OTP_DUPLICATES: 76,
-  EXPORT_OTP_RECORDS: 77
+  EXPORT_OTP_RECORDS: 77,
+  ENCRYPTION_DECRYPT_PROTON_EXPORT: 78
 }
 
 export const API_BY_VALUE = Object.entries(API).reduce((acc, [key, value]) => {

@@ -63,6 +63,7 @@ import {
   exportOtpRecords
 } from './appDeps'
 import { decryptBitwardenExport } from './decryptBitwardenExport'
+import { decryptProtonExport } from './decryptProtonExport'
 import { decryptVaultKey } from './decryptVaultKey'
 import { encryptVaultKeyWithHashedPassword } from './encryptVaultKeyWithHashedPassword'
 import { encryptVaultWithKey } from './encryptVaultWithKey'
@@ -1001,6 +1002,24 @@ export const handleRpcCommand = async (req) => {
         req.reply(
           JSON.stringify({
             error: `Error decrypting Bitwarden export: ${error.message || error}`
+          })
+        )
+      }
+
+      break
+
+    case API.ENCRYPTION_DECRYPT_PROTON_EXPORT:
+      try {
+        const decryptedData = decryptProtonExport(
+          requestData,
+          requestData.password
+        )
+
+        req.reply(JSON.stringify({ data: decryptedData }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error decrypting Proton export: ${error.message || error}`
           })
         )
       }

@@ -980,6 +980,21 @@ export class PearpassVaultClient extends EventEmitter {
   }
 
   /**
+   * @param {Object} params
+   * @param {string} params.password
+   * @param {number} params.version        - must be 1
+   * @param {string} params.salt           - base64-encoded 16-byte random salt
+   * @param {string} params.content        - base64-encoded [nonce(12) || ciphertext || tag(16)]
+   * @returns {Promise<string>} Decrypted UTF-8 plaintext (the vault JSON)
+   */
+  async decryptProtonExport(params) {
+    return this._handleRequest({
+      command: API.ENCRYPTION_DECRYPT_PROTON_EXPORT,
+      data: params
+    })
+  }
+
+  /**
    * Generates OTP codes for a list of record IDs.
    * @param {string[]} recordIds
    * @returns {Promise<Array<{ recordId: string, code: string, timeRemaining?: number }>>}
