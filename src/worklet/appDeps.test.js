@@ -471,7 +471,7 @@ describe('appDeps module functions (excluding encryption)', () => {
       expect(mockInstance.remove).toHaveBeenCalledWith('key3')
     })
 
-    test('vaultRemoveWriter calls removeWriter on activeVaultInstance', async () => {
+    test('vaultRemoveWriter calls removeWriter with the hex key decoded to bytes', async () => {
       await appDeps.initActiveVaultInstance({
         id: 'vault1',
         encryptionKey: 'key'
@@ -481,7 +481,10 @@ describe('appDeps module functions (excluding encryption)', () => {
       mockInstance.removeWriter = jest.fn().mockResolvedValue()
 
       await appDeps.vaultRemoveWriter('abc123')
-      expect(mockInstance.removeWriter).toHaveBeenCalledWith('abc123')
+
+      const calledWith = mockInstance.removeWriter.mock.calls[0][0]
+      expect(Buffer.isBuffer(calledWith)).toBe(true)
+      expect(Buffer.compare(calledWith, Buffer.from('abc123', 'hex'))).toBe(0)
     })
 
     test('vaultRemoveWriter throws when writerKey is missing', async () => {
