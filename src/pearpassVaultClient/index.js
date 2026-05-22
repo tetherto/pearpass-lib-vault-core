@@ -1018,6 +1018,21 @@ export class PearpassVaultClient extends EventEmitter {
   }
 
   /**
+   * @param {Object} params
+   * @param {Object[]} params.slots   - the export's `header.slots`
+   * @param {{ nonce: string, tag: string }} params.params - the export's `header.params` (hex)
+   * @param {string} params.db        - base64-encoded vault ciphertext (the export's `db`)
+   * @param {string} params.password  - the Aegis export password
+   * @returns {Promise<string>} the decrypted `db` as a UTF-8 JSON string
+   */
+  async decryptAegisExport(params) {
+    return this._handleRequest({
+      command: API.ENCRYPTION_DECRYPT_AEGIS_EXPORT,
+      data: params
+    })
+  }
+
+  /**
    * Generates OTP codes for a list of record IDs.
    * @param {string[]} recordIds
    * @returns {Promise<Array<{ recordId: string, code: string, timeRemaining?: number }>>}

@@ -62,6 +62,7 @@ import {
   findOtpDuplicates,
   exportOtpRecords
 } from './appDeps'
+import { decryptAegisExport } from './decryptAegisExport'
 import { decryptBitwardenExport } from './decryptBitwardenExport'
 import { decryptProtonExport } from './decryptProtonExport'
 import { decryptVaultKey } from './decryptVaultKey'
@@ -1036,6 +1037,21 @@ export const handleRpcCommand = async (req) => {
         req.reply(
           JSON.stringify({
             error: `Error deriving KeePass key: ${error.message || error}`
+          })
+        )
+      }
+
+      break
+
+    case API.ENCRYPTION_DECRYPT_AEGIS_EXPORT:
+      try {
+        const decryptedData = decryptAegisExport(requestData)
+
+        req.reply(JSON.stringify({ data: decryptedData }))
+      } catch (error) {
+        req.reply(
+          JSON.stringify({
+            error: `Error decrypting Aegis export: ${error.message || error}`
           })
         )
       }
