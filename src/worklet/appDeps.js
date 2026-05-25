@@ -811,6 +811,26 @@ export const vaultRemove = async (key) => {
 }
 
 /**
+ * Drops a writer from the active vault's autobase. After replication, the
+ * removed writer can no longer append to the vault.
+ * @param {string} writerKey - hex writer key of the peer to remove
+ * @returns {Promise<void>}
+ */
+export const vaultRemoveWriter = async (writerKey) => {
+  if (!isActiveVaultInitialized) {
+    throw new Error('Vault not initialised')
+  }
+  if (!writerKey) {
+    throw new Error('writerKey is required')
+  }
+
+  // autopass.removeWriter passes the key straight to b4a.from(), which
+  // defaults to UTF-8 for strings. We store/transport writerKey as hex,
+  // so decode here to the raw 32-byte ed25519 public key autobase needs.
+  await activeVaultInstance.removeWriter(b4a.from(writerKey, 'hex'))
+}
+
+/**
  * @returns {Promise<Array<any>>}
  */
 export const vaultsList = async (filterKey) => {

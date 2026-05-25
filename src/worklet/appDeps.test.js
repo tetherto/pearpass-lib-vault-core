@@ -471,6 +471,33 @@ describe('appDeps module functions (excluding encryption)', () => {
       expect(mockInstance.remove).toHaveBeenCalledWith('key3')
     })
 
+    test('vaultRemoveWriter calls removeWriter with the hex key decoded to bytes', async () => {
+      await appDeps.initActiveVaultInstance({
+        id: 'vault1',
+        encryptionKey: 'key'
+      })
+
+      const mockInstance = appDeps.getActiveVaultInstance()
+      mockInstance.removeWriter = jest.fn().mockResolvedValue()
+
+      await appDeps.vaultRemoveWriter('abc123')
+
+      const calledWith = mockInstance.removeWriter.mock.calls[0][0]
+      expect(Buffer.isBuffer(calledWith)).toBe(true)
+      expect(Buffer.compare(calledWith, Buffer.from('abc123', 'hex'))).toBe(0)
+    })
+
+    test('vaultRemoveWriter throws when writerKey is missing', async () => {
+      await appDeps.initActiveVaultInstance({
+        id: 'vault1',
+        encryptionKey: 'key'
+      })
+
+      await expect(appDeps.vaultRemoveWriter()).rejects.toThrow(
+        'writerKey is required'
+      )
+    })
+
     test('signMessage uses the personal-identity keypair, not the autobase writer keypair', async () => {
       // Regression guard: if this flips, signMessage is back to being a
       // hypercore block-signature oracle.

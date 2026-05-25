@@ -16,7 +16,11 @@ import { workletLogger } from './utils/workletLogger'
  * @param {boolean} params.isVaultReady - Whether the vault is initialized
  * @returns {Promise<string|null>} Base64 data URI string or null if not found
  */
-const getFromCache = async ({ _hostname, cacheKey, isVaultReady }) => {
+const getFromCache = async ({
+  hostname: _hostname,
+  cacheKey,
+  isVaultReady
+}) => {
   if (!isVaultReady) return null
 
   try {
