@@ -1,3 +1,6 @@
+> [!WARNING]
+> 🍐 PearPass is currently paused from active development, so please use at your own caution until further notice.
+
 # pearpass-lib-vault-core
 
 A bare runtime focused library for managing encrypted password vaults for Pearpass. This library provides a secure way to store, encrypt, and manage password vaults.
