@@ -259,6 +259,8 @@ export const buildPath = (path) => {
  * @returns {Promise<Autopass>}
  */
 export const initInstance = async ({ path, hashedPassword, encryptionKey }) => {
+  let store
+  let instance
   try {
     const fullPath = buildPath(path)
 
@@ -269,7 +271,7 @@ export const initInstance = async ({ path, hashedPassword, encryptionKey }) => {
     // "While mkdir if missing: <path>/db: No such file or directory".
     await fs.promises.mkdir(barePath.join(fullPath, 'db'), { recursive: true })
 
-    const store = new Corestore(fullPath, CORE_STORE_OPTIONS)
+    store = new Corestore(fullPath, CORE_STORE_OPTIONS)
 
     if (!store) {
       throw new Error('Error creating store')
@@ -277,7 +279,7 @@ export const initInstance = async ({ path, hashedPassword, encryptionKey }) => {
 
     const conf = await getConfig(store)
 
-    const instance = new Autopass(store, {
+    instance = new Autopass(store, {
       encryptionKey: encryptionKey
         ? Buffer.from(encryptionKey, 'base64')
         : undefined,
@@ -291,6 +293,27 @@ export const initInstance = async ({ path, hashedPassword, encryptionKey }) => {
 
     return instance
   } catch (error) {
+    // Close store/instance on failure to prevent leaked file locks blocking re-init
+    if (instance) {
+      try {
+        await instance.close()
+      } catch (err) {
+        workletLogger.error(
+          'Failed to close instance during initInstance cleanup',
+          err
+        )
+      }
+    }
+    if (store) {
+      try {
+        await store.close()
+      } catch (err) {
+        workletLogger.error(
+          'Failed to close store during initInstance cleanup',
+          err
+        )
+      }
+    }
     throw new Error(`Error initializing instance: ${error.message}`)
   }
 }
@@ -309,6 +332,8 @@ export const initInstanceWithNewBlindEncryption = async ({
   newHashedPassword,
   currentHashedPassword
 }) => {
+  let store
+  let instance
   try {
     if (!currentHashedPassword || !newHashedPassword) {
       throw new Error('Old and new hashed passwords are required')
@@ -320,7 +345,7 @@ export const initInstanceWithNewBlindEncryption = async ({
     // to avoid an ENOENT race during Corestore.ready() on cold installs.
     await fs.promises.mkdir(barePath.join(fullPath, 'db'), { recursive: true })
 
-    const store = new Corestore(fullPath, CORE_STORE_OPTIONS)
+    store = new Corestore(fullPath, CORE_STORE_OPTIONS)
 
     if (!store) {
       throw new Error('Error creating store')
@@ -328,7 +353,7 @@ export const initInstanceWithNewBlindEncryption = async ({
 
     const conf = await getConfig(store)
 
-    const instance = new Autopass(store, {
+    instance = new Autopass(store, {
       encryptionKey: encryptionKey
         ? Buffer.from(encryptionKey, 'base64')
         : undefined,
@@ -343,6 +368,27 @@ export const initInstanceWithNewBlindEncryption = async ({
 
     return instance
   } catch (error) {
+    // Close store/instance on failure to prevent leaked file locks
+    if (instance) {
+      try {
+        await instance.close()
+      } catch (err) {
+        workletLogger.error(
+          'Failed to close instance during initInstanceWithNewBlindEncryption cleanup',
+          err
+        )
+      }
+    }
+    if (store) {
+      try {
+        await store.close()
+      } catch (err) {
+        workletLogger.error(
+          'Failed to close store during initInstanceWithNewBlindEncryption cleanup',
+          err
+        )
+      }
+    }
     throw new Error(
       `Error initializing instance with new blind encryption: ${error.message}`
     )
